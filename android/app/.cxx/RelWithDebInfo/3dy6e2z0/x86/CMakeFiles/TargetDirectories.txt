@@ -1,0 +1,2 @@
+/Users/daly/Desktop/dumum_tergo-main/android/app/.cxx/RelWithDebInfo/3dy6e2z0/x86/CMakeFiles/edit_cache.dir
+/Users/daly/Desktop/dumum_tergo-main/android/app/.cxx/RelWithDebInfo/3dy6e2z0/x86/CMakeFiles/rebuild_cache.dir
