@@ -32,13 +32,7 @@ class _AccuilSellerScreenState extends State<AccuilSellerScreen> {
 
   late final List<Widget> _screens;
 
-  final List<String> _appBarTitles = [
-    "Voitures en location",
-    "Liste des voitures",
-    "Marketplace",
- 
-    "Profil"
-  ];
+
 
   @override
   void initState() {
@@ -98,40 +92,42 @@ class _AccuilSellerScreenState extends State<AccuilSellerScreen> {
 
 
 
-  @override
-  Widget build(BuildContext context) {
-    final themeViewModel = context.watch<ThemeViewModel>();
-    final accueilViewModel = Provider.of<AccueilViewModel>(context);
-    accueilViewModel.fetchToken();
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Contenu principal
-          _buildCurrentScreen(),
-          
-          // Overlay (si présent)
-          if (_overlayContent != null)
-            Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: _overlayContent,
-            ),
-        ],
-      ),
-      bottomNavigationBar: AnimatedNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _overlayContent = null;
-            _currentIndex = index;
-          });
-        },
-        isDarkMode: themeViewModel.isDarkMode,
-        screens: _screens,
-        asBottomBar: true,
-      ),
-    );
-  }
+@override
+Widget build(BuildContext context) {
+  final themeViewModel = context.watch<ThemeViewModel>();
+  final accueilViewModel = Provider.of<AccueilViewModel>(context);
+  accueilViewModel.fetchToken();
+
+  return Scaffold(
+    drawer: const SideMenuView(), // Ajout du drawer ici
+    body: Stack(
+      children: [
+        // Contenu principal
+        _buildCurrentScreen(),
+        
+        // Overlay (si présent)
+        if (_overlayContent != null)
+          Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: _overlayContent,
+          ),
+      ],
+    ),
+    bottomNavigationBar: AnimatedNavBar(
+      currentIndex: _currentIndex,
+      onTap: (index) {
+        setState(() {
+          _overlayContent = null;
+          _currentIndex = index;
+        });
+      },
+      isDarkMode: themeViewModel.isDarkMode,
+      screens: _screens,
+      asBottomBar: true,
+    ),
+  );
+}
 
   Widget _buildCurrentScreen() {
     return IndexedStack(

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:jwt_decoder/jwt_decoder.dart'; // Ajoutez cette dépendance dans pubspec.yaml
 
 class ProfileViewModel with ChangeNotifier {
   String name = '';
@@ -21,6 +22,14 @@ class ProfileViewModel with ChangeNotifier {
       String? refreshToken = await storage.read(key: 'refreshToken');
       String? userId = await storage.read(key: 'userId');
 
+      // Si userId n'est pas trouvé, on le récupère depuis le token
+      if (userId == null && token != null) {
+        userId = _getUserIdFromToken(token);
+        if (userId != null) {
+          await storage.write(key: 'userId', value: userId);
+        }
+      }
+
       if (token == null || refreshToken == null || userId == null) {
         throw Exception('Tokens ou ID utilisateur non disponibles');
       }
@@ -33,12 +42,12 @@ class ProfileViewModel with ChangeNotifier {
       if (profileResponse.statusCode == 401 || experiencesResponse.statusCode == 401) {
         print('Token expiré, tentative de rafraîchissement...');
         final newTokens = await _refreshToken(refreshToken);
+        token = newTokens['token'];
+        await storage.write(key: 'token', value: token);
         
-        await storage.write(key: 'token', value: newTokens['accessToken']);
-        await storage.write(key: 'refreshToken', value: newTokens['refreshToken']);
-        
-        profileResponse = await _makeProfileRequest(newTokens['accessToken']);
-        experiencesResponse = await _makeExperiencesRequest(newTokens['accessToken'], userId);
+        // Nouvelle tentative avec le nouveau token
+        profileResponse = await _makeProfileRequest(token!);
+        experiencesResponse = await _makeExperiencesRequest(token!, userId!);
       }
 
       if (profileResponse.statusCode == 200) {
@@ -58,6 +67,20 @@ class ProfileViewModel with ChangeNotifier {
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // Méthode pour extraire l'ID utilisateur du token JWT
+  String? _getUserIdFromToken(String token) {
+    try {
+      final decodedToken = JwtDecoder.decode(token);
+      if (decodedToken['user'] != null && decodedToken['user']['_id'] != null) {
+        return decodedToken['user']['_id'].toString();
+      }
+      return null;
+    } catch (e) {
+      print('Erreur lors du décodage du token: $e');
+      return null;
     }
   }
 
@@ -94,7 +117,7 @@ class ProfileViewModel with ChangeNotifier {
     if (jsonResponse.containsKey('data')) {
       final userData = jsonResponse['data'];
       name = userData['name'] ?? 'Inconnu';
-      
+      print('Données du profil reçues: ${jsonResponse['data']}');
       // Mise à jour de l'image de profil
       profileImageUrl = userData['image']?.toString().startsWith('http') ?? false
           ? userData['image']

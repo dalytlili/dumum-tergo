@@ -28,6 +28,8 @@ class _ExperiencesScreenState extends State<ExperiencesScreen> {
   bool _hasMore = true;
   final ScrollController _scrollController = ScrollController();
   int currentPage = 0;
+  String _profileImageUrl = ''; 
+  String get profileImageUrl => _profileImageUrl;
 
   @override
   void initState() {
@@ -64,7 +66,35 @@ class _ExperiencesScreenState extends State<ExperiencesScreen> {
       _fetchExperiences();
     }
   }
- 
+ Future<String> _getProfileImage() async {
+  try {
+    final token = await storage.read(key: 'token');
+    if (token == null) return 'assets/images/default.png';
+
+    final response = await http.get(
+      Uri.parse('https://dumum-tergo-backend.onrender.com/api/profile'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(response.body);
+      if (jsonResponse.containsKey('data')) {
+        final userData = jsonResponse['data'];
+        if (userData['image'] == null || userData['image'].isEmpty) {
+          return 'assets/images/default.png';
+        } else if (userData['image'].startsWith('http')) {
+          return userData['image'];
+        } else {
+          return 'https://res.cloudinary.com/dcs2edizr/image/upload/${userData['image']}';
+        }
+      }
+    }
+    return 'assets/images/default.png';
+  } catch (e) {
+    debugPrint('Error fetching profile image: $e');
+    return 'assets/images/default.png';
+  }
+}
 Future<void> _fetchExperiences() async {
   if (_isLoading || !_hasMore) return;
 
@@ -176,6 +206,7 @@ Future<void> _fetchExperiences() async {
       return null;
     }
   }
+
 
 Future<void> _handleLike(Experience experience) async {
   try {
@@ -293,243 +324,218 @@ Future<void> _handleFavorite(Experience experience) async {
     });
   }
 }
-  Future<void> _showCommentsBottomSheet(String experienceId, List<dynamic> comments) async {
-    final TextEditingController _commentController = TextEditingController();
-    bool _isPostingComment = false;
-    bool _isLoadingComments = true;
-    int experienceIndex = _experiences.indexWhere((exp) => exp.id == experienceId);
-    List<Comment> fetchedComments = [];
-              final theme = Theme.of(context);
+Future<void> _showCommentsBottomSheet(String experienceId, List<dynamic> comments) async {
+  final TextEditingController _commentController = TextEditingController();
+  bool _isPostingComment = false;
+  bool _isLoadingComments = true;
+  int experienceIndex = _experiences.indexWhere((exp) => exp.id == experienceId);
+  List<Comment> fetchedComments = [];
+  final theme = Theme.of(context);
 
-    try {
-      final token = await storage.read(key: 'token');
-      
-      // Afficher le bottom sheet immédiatement avec un indicateur de chargement
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              Future<void> _loadComments() async {
-                setState(() => _isLoadingComments = true);
-                try {
-                  final response = await http.get(
-                    Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/$experienceId/comments'),
-                    headers: {
-                      'Authorization': 'Bearer $token',
-                      'Accept': 'application/json',
-                    },
-                  );
-
-                  if (response.statusCode == 200) {
-                    final data = json.decode(response.body);
-                    fetchedComments = (data['data'] as List)
-                        .map((commentJson) => Comment.fromJson(commentJson))
-                        .toList();
-                  }
-                } catch (e) {
-                  debugPrint('Error loading comments: $e');
-                } finally {
-                  setState(() => _isLoadingComments = false);
-                }
-              }
-
-              Future<void> _postComment() async {
-                if (_commentController.text.isEmpty) return;
-                
-                setState(() => _isPostingComment = true);
-                try {
-                  final response = await http.post(
-                    Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/$experienceId/comment'),
-                    headers: {
-                      'Authorization': 'Bearer $token',
-                      'Content-Type': 'application/json',
-                    },
-                    body: json.encode({'text': _commentController.text}),
-                  );
-
-                  if (response.statusCode == 200) {
-                    final newCommentData = json.decode(response.body);
-                    final newComment = Comment.fromJson(newCommentData['data']['comments'].last);
-                    
-                    setState(() {
-                      fetchedComments.add(newComment);
-                      _commentController.clear();
-                    });
-
-                    if (experienceIndex != -1) {
-                      setState(() {
-                        _experiences[experienceIndex].comments.add({
-                          'user': {
-                            '_id': newComment.user.id,
-                            'name': newComment.user.name,
-                            'image': newComment.user.image
-                          },
-                          'text': newComment.text,
-                          '_id': newComment.id,
-                          'createdAt': newComment.createdAt.toIso8601String()
-                        });
-                      });
-                    }
-                  }
-                } catch (e) {
-                  debugPrint('Error posting comment: $e');
-                } finally {
-                  setState(() => _isPostingComment = false);
-                }
-              }
-
-              // Charger les commentaires au premier affichage
-              if (_isLoadingComments && fetchedComments.isEmpty) {
-                _loadComments();
-              }
-
-              return Container(
-                  decoration: BoxDecoration(
-          // fond selon le thème (clair/sombre)
-          color: theme.cardTheme.color ?? (theme.brightness == Brightness.dark ? Colors.grey[900] : Colors.white),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-                padding: const EdgeInsets.all(16),
-                height: MediaQuery.of(context).size.height * 0.85,
-                child: Column(
-                  children: [
-                        Container(
-              width: 40,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: theme.brightness == Brightness.dark ? Colors.grey[700] : Colors.grey[300],
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-                    const Text(
-                      'Commentaires',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Liste des commentaires
-                    Expanded(
-                      child: _isLoadingComments
-                          ? const Center(child: CircularProgressIndicator())
-                          : fetchedComments.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'Aucun commentaire pour le moment',
-                                    style: TextStyle(color: Colors.grey),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount: fetchedComments.length,
-                                  itemBuilder: (context, index) {
-                                    final comment = fetchedComments[index];
-                                    return ListTile(
-                                      leading: CircleAvatar(
-                                        backgroundImage: NetworkImage(
-                                          comment.user.image.startsWith('https') 
-                                            ? comment.user.image 
-                                            : 'https://res.cloudinary.com/dcs2edizr/image/upload/${comment.user.image}',
-                                        ),
-                                      ),
-                                      title: Text(comment.user.name),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(comment.text),
-                                          Text(
-                                            _formatTimeAgo(comment.createdAt),
-                                            style: const TextStyle(color: Colors.grey, fontSize: 12),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                    ),
-                    
-                    // Champ pour ajouter un commentaire
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _commentController,
-                              decoration: InputDecoration(
-                                hintText: 'Ajouter un commentaire...',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                              ),
-                              onSubmitted: (_) => _postComment(),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _isPostingComment
-                              ? const CircularProgressIndicator()
-                              : IconButton(
-                                  icon: const Icon(Icons.send),
-                                  onPressed: _postComment,
-                                ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+  showModalBottomSheet(
+    context: context,
+      constraints: BoxConstraints(
+      maxHeight: MediaQuery.of(context).size.height * 0.7, // 70% de la hauteur
+    ),
+    isScrollControlled: true,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          Future<void> _loadComments() async {
+            setState(() => _isLoadingComments = true);
+            try {
+              final token = await storage.read(key: 'token');
+              final response = await http.get(
+                Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/$experienceId/comments'),
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Accept': 'application/json',
+                },
               );
-            },
-          );
-        },
-      );
 
-      // Charger les commentaires après l'affichage du bottom sheet
-      final response = await http.get(
-        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/$experienceId/comments'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
+              if (response.statusCode == 200) {
+                final data = json.decode(response.body);
+                setState(() {
+                  fetchedComments = (data['data'] as List)
+                      .map((commentJson) => Comment.fromJson(commentJson))
+                      .toList();
+                });
+              }
+            } catch (e) {
+              debugPrint('Error loading comments: $e');
+            } finally {
+              setState(() => _isLoadingComments = false);
+            }
+          }
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        fetchedComments = (data['data'] as List)
-            .map((commentJson) => Comment.fromJson(commentJson))
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Error fetching comments: $e');
-      if (!mounted) return;
-      
-      showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        builder: (context) {
+          Future<void> _postComment() async {
+            if (_commentController.text.isEmpty) return;
+            
+            setState(() => _isPostingComment = true);
+            try {
+              final token = await storage.read(key: 'token');
+              final response = await http.post(
+                Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/$experienceId/comment'),
+                headers: {
+                  'Authorization': 'Bearer $token',
+                  'Content-Type': 'application/json',
+                },
+                body: json.encode({'text': _commentController.text}),
+              );
+
+              if (response.statusCode == 200) {
+                final newCommentData = json.decode(response.body);
+                final newComment = Comment.fromJson(newCommentData['data']['comments'].last);
+                
+                setState(() {
+                  fetchedComments.add(newComment);
+                  _commentController.clear();
+                });
+
+                if (experienceIndex != -1) {
+                  setState(() {
+                    _experiences[experienceIndex].comments.add({
+                      'user': {
+                        '_id': newComment.user.id,
+                        'name': newComment.user.name,
+                        'image': newComment.user.image
+                      },
+                      'text': newComment.text,
+                      '_id': newComment.id,
+                      'createdAt': newComment.createdAt.toIso8601String()
+                    });
+                  });
+                }
+              }
+            } catch (e) {
+              debugPrint('Error posting comment: $e');
+            } finally {
+              setState(() => _isPostingComment = false);
+            }
+          }
+
+          // Charger les commentaires immédiatement
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_isLoadingComments && fetchedComments.isEmpty) {
+              _loadComments();
+            }
+          });
+
           return Container(
-            padding: const EdgeInsets.all(16),
-            height: MediaQuery.of(context).size.height * 0.5,
+            decoration: BoxDecoration(
+              color: theme.cardTheme.color ?? 
+                  (theme.brightness == Brightness.dark ? Colors.grey[900] : Colors.white),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 16,
+              right: 16,
+              top: 16,
+            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Container(
+                  width: 40,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: theme.brightness == Brightness.dark 
+                        ? Colors.grey[700] 
+                        : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
                 const Text(
                   'Commentaires',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                const Expanded(
-                  child: Center(
-                    child: Text('Impossible de charger les commentaires'),
-                  ),
+                
+                // Liste des commentaires avec hauteur flexible
+                Expanded(
+                  child: _isLoadingComments
+                      ? const Center(child: CircularProgressIndicator())
+                      : fetchedComments.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Aucun commentaire pour le moment',
+                                style: TextStyle(color: Colors.grey)),
+                            )
+                          : ListView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: fetchedComments.length,
+                              itemBuilder: (context, index) {
+                                final comment = fetchedComments[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundImage: NetworkImage(
+                                      comment.user.image.startsWith('https') 
+                                        ? comment.user.image 
+                                        : 'https://res.cloudinary.com/dcs2edizr/image/upload/${comment.user.image}',
+                                    ),
+                                  ),
+                                  title: Text(comment.user.name),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(comment.text),
+                                      Text(
+                                        _formatTimeAgo(comment.createdAt),
+                                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                 ),
-                TextField(
-                  controller: _commentController,
-                  decoration: InputDecoration(
-                    hintText: 'Ajouter un commentaire...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
+                
+                // Champ de commentaire fixé en bas
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          decoration: InputDecoration(
+                            hintText: 'Ajouter un commentaire...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                          ),
+                          onSubmitted: (_) => _postComment(),
+                          onTap: () {
+                            Future.delayed(const Duration(milliseconds: 300), () {
+                              Scrollable.ensureVisible(
+                                context,
+                                alignment: 1.0,
+                                duration: const Duration(milliseconds: 300),
+                              );
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _isPostingComment
+                          ? const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.send),
+                              onPressed: _postComment,
+                            ),
+                    ],
                   ),
                 ),
               ],
@@ -537,9 +543,9 @@ Future<void> _handleFavorite(Experience experience) async {
           );
         },
       );
-    }
-  }
-
+    },
+  );
+}
   Future<void> _showLikesBottomSheet(String experienceId) async {
     bool _isLoadingLikes = true;
     List<User> likers = [];
@@ -663,281 +669,288 @@ Future<void> _handleFavorite(Experience experience) async {
       debugPrint('Error fetching likes: $e');
     }
   }
+Widget _buildExperienceItem(Experience experience) {
+  final theme = Theme.of(context);
+  final isDarkMode = theme.brightness == Brightness.dark;
+  final textColor = isDarkMode ? Colors.white : Colors.black;
+  final secondaryTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
 
-  Widget _buildExperienceItem(Experience experience) {
-    final lastComment = experience.comments.isNotEmpty 
-        ? experience.comments.last 
-        : null;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
-          
-          child: Row(
-            
-            children: [
-              
-              CircleAvatar(
-                radius: 16,
-                backgroundImage: NetworkImage(
-                  'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.user.image ?? 'default.jpg'}',
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () {
-                  if (currentUserId != null && currentUserId != experience.user.id) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UserProfileScreen(userId: experience.user.id),
-                      ),
-                    );
-                  }
-                },
-                child: Text(
-                  experience.user.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+  return Card(
+    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    color: theme.cardTheme.color,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundImage: NetworkImage(
+                    experience.user.image.startsWith('https') 
+                      ? experience.user.image
+                      : 'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.user.image}',
                   ),
                 ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.more_vert),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ),
-        
-        if (experience.images.isNotEmpty)
-          Column(
-  children: [
-    GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => FullScreenImageGallery(
-              images: experience.images.map((img) => img.url).toList(),
-              initialIndex: currentPage,
-            ),
-          ),
-        );
-      },
-      child: SizedBox(
-        height: 300,
-        child: PageView.builder(
-          itemCount: experience.images.length,
-          onPageChanged: (index) {
-            setState(() {
-              currentPage = index;
-            });
-          },
-          itemBuilder: (context, index) {
-            return CachedNetworkImage(
-              imageUrl: experience.images[index].url,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                color: Colors.grey[200],
-              ),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
-            );
-          },
-        ),
-      ),
-    ),
-    const SizedBox(height: 4),
-    Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(experience.images.length, (index) {
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          width: currentPage == index ? 12 : 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: currentPage == index
-                ? Theme.of(context).primaryColor
-                : Colors.grey.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        );
-      }),
-    ),
-  ],
-),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  experience.isLikedByUser(currentUserId ?? '') 
-                    ? Icons.favorite 
-                    : Icons.favorite_border,
-                  color: experience.isLikedByUser(currentUserId ?? '') 
-                    ? Colors.red 
-                    : null,
-                ),
-                onPressed: () => _handleLike(experience),
-              ),
-              IconButton(
-                icon: const Icon(Icons.comment_outlined),
-                onPressed: () {
-                  _showCommentsBottomSheet(experience.id, experience.comments);
-                },
-              ),
-        
-              const Spacer(),
-             IconButton(
-  icon: Icon(
-    experience.isFavorite ?? false 
-      ? Icons.bookmark 
-      : Icons.bookmark_border,
-    color: experience.isFavorite ?? false 
-      ? Theme.of(context).primaryColor 
-      : null,
-  ),
-  onPressed: () => _handleFavorite(experience),
-),
-            ],
-          ),
-        ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
-          child: experience.likes.isEmpty
-              ? const SizedBox.shrink()
-              : GestureDetector(
-                  onTap: () => _showLikesBottomSheet(experience.id),
-                  child: RichText(
-                    text: TextSpan(
-                      style: DefaultTextStyle.of(context).style,
-                      children: [
-                        TextSpan(
-                          text: '${experience.likes.length} ',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    if (currentUserId != null && currentUserId != experience.user.id) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => UserProfileScreen(userId: experience.user.id),
                         ),
-                         TextSpan(
-                        text: experience.likes.length == 1 ? 'j\'aime' : 'j\'aimes',
-                        style: const TextStyle(
-                          color: Colors.black,
-                        ),
-                      ),
-                      ],
+                      );
+                    }
+                  },
+                  child: Text(
+                    experience.user.name,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
                 ),
-        ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: Colors.black),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(Icons.more_vert, color: secondaryTextColor),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+          
+          if (experience.images.isNotEmpty)
+            Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FullScreenImageGallery(
+                          images: experience.images.map((img) => img.url).toList(),
+                          initialIndex: currentPage,
+                        ),
+                      ),
+                    );
+                  },
+                  child: SizedBox(
+                    height: 300,
+                    child: PageView.builder(
+                      itemCount: experience.images.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          currentPage = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return CachedNetworkImage(
+                          imageUrl: experience.images[index].url,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                          ),
+                          errorWidget: (context, url, error) => Icon(Icons.error, color: secondaryTextColor),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(experience.images.length, (index) {
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: currentPage == index ? 12 : 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: currentPage == index
+                            ? theme.primaryColor
+                            : Colors.grey.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    experience.isLikedByUser(currentUserId ?? '') 
+                      ? Icons.favorite 
+                      : Icons.favorite_border,
+                    color: experience.isLikedByUser(currentUserId ?? '') 
+                      ? Colors.red 
+                      : secondaryTextColor,
+                  ),
+                  onPressed: () => _handleLike(experience),
+                ),
+                IconButton(
+                  icon: Icon(Icons.comment_outlined, color: secondaryTextColor),
+                  onPressed: () {
+                    _showCommentsBottomSheet(experience.id, experience.comments);
+                  },
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: Icon(
+                    experience.isFavorite ?? false 
+                      ? Icons.bookmark 
+                      : Icons.bookmark_border,
+                    color: experience.isFavorite ?? false 
+                      ? AppColors.primary 
+                      : secondaryTextColor,
+                  ),
+                  onPressed: () => _handleFavorite(experience),
+                ),
+              ],
+            ),
+          ),
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+            child: experience.likes.isEmpty
+                ? const SizedBox.shrink()
+                : GestureDetector(
+                    onTap: () => _showLikesBottomSheet(experience.id),
+                    child: RichText(
+                      text: TextSpan(
+                        style: DefaultTextStyle.of(context).style.copyWith(color: textColor),
+                        children: [
+                          TextSpan(
+                            text: '${experience.likes.length} ',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          TextSpan(
+                            text: experience.likes.length == 1 ? 'j\'aime' : 'j\'aimes',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(color: textColor),
+                    children: [
+                      TextSpan(
+                        text: '${experience.user.name} ',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+                ReadMoreText(
+                  experience.description,
+                  trimLines: 2,
+                  colorClickableText: theme.primaryColor,
+                  trimMode: TrimMode.Line,
+                  trimCollapsedText: '... Voir plus',
+                  trimExpandedText: ' Voir moins',
+                  style: TextStyle(color: textColor),
+                ),
+              ],
+            ),
+          ),
+          
+          if (experience.comments.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+              child: GestureDetector(
+                onTap: () => _showCommentsBottomSheet(experience.id, experience.comments),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextSpan(
-                      text: '${experience.user.name} ',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    Text(
+                      'Dernier commentaire',
+                      style: TextStyle(
+                        color: secondaryTextColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 12,
+                          backgroundImage: NetworkImage(
+                            experience.comments.last['user']['image'].startsWith('https') 
+                              ? experience.comments.last['user']['image']
+                              : 'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.comments.last['user']['image']}',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                experience.comments.last['user']['name'],
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: textColor,
+                                ),
+                              ),
+                              Text(
+                                experience.comments.last['text'],
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: textColor,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              ReadMoreText(
-                experience.description,
-                trimLines: 2,
-                colorClickableText: AppColors.primary,
-                trimMode: TrimMode.Line,
-                trimCollapsedText: '... Voir plus',
-                trimExpandedText: ' Voir moins',
-                style: TextStyle(color: Colors.black),
-              ),
-            ],
-          ),
-        ),
-        
-        if (experience.comments.isNotEmpty)
+            ),
+
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
-            child: GestureDetector(
-              onTap: () => _showCommentsBottomSheet(experience.id, experience.comments),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dernier commentaire',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundImage: NetworkImage(
-                          experience.comments.last['user']['image'].startsWith('https') 
-                            ? experience.comments.last['user']['image']
-                            : 'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.comments.last['user']['image']}',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              experience.comments.last['user']['name'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            Text(
-                              experience.comments.last['text'],
-                              style: const TextStyle(fontSize: 14),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+            child: Text(
+              _formatTimeAgo(experience.createdAt),
+              style: TextStyle(
+                color: secondaryTextColor,
+                fontSize: 12,
               ),
             ),
           ),
-
-        
-
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
-          child: Text(
-            _formatTimeAgo(experience.createdAt),
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        
-        const SizedBox(height: 8),
-      ],
-    );
-  }
+          
+        ],
+      ),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -988,28 +1001,35 @@ Future<void> _handleFavorite(Experience experience) async {
                     child: Row(
                       children: [
                         FutureBuilder(
-                          future: storage.read(key: 'userImage'),
-                          builder: (context, snapshot) {
-                            final imagePath = snapshot.data;
-                            return CircleAvatar(
-                              radius: 16,
-                              child: ClipOval(
-                                child: CachedNetworkImage(
-                                  imageUrl: imagePath != null && imagePath.isNotEmpty
-                                      ? imagePath.startsWith('http')
-                                          ? imagePath
-                                          : 'https://res.cloudinary.com/dcs2edizr/image/upload/$imagePath'
-                                      : 'assets/images/default.png',
-                                  fit: BoxFit.cover,
-                                  width: 32,
-                                  height: 32,
-                                  placeholder: (context, url) => CircularProgressIndicator(),
-                                  errorWidget: (context, url, error) => Icon(Icons.error),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+  future: _getProfileImage(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return CircleAvatar(
+        radius: 16,
+        backgroundColor: Colors.grey[300],
+        child: const CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    
+    final imageUrl = snapshot.data ?? 'assets/images/default.png';
+    
+    return CircleAvatar(
+      radius: 16,
+      child: ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          width: 32,
+          height: 32,
+          placeholder: (context, url) => Container(
+            color: Colors.grey[300],
+          ),
+          errorWidget: (context, url, error) => const Icon(Icons.error),
+        ),
+      ),
+    );
+  },
+),
                         const SizedBox(width: 12),
                         const Text(
                           'Partagez une expérience...',

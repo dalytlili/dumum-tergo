@@ -1,16 +1,15 @@
-import 'package:dumum_tergo/views/seller/car/search-location.dart';
+import 'package:dumum_tergo/viewmodels/seller/CampingItemSEllerViewModel.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:dumum_tergo/viewmodels/user/camping_items_viewmodel.dart';
 
-class FilterSheet1 extends StatefulWidget {
-  const FilterSheet1({Key? key}) : super(key: key);
+class FilterSheet extends StatefulWidget {
+  const FilterSheet({Key? key}) : super(key: key);
 
   @override
-  State<FilterSheet1> createState() => _FilterSheet1State();
+  State<FilterSheet> createState() => _FilterSheetState();
 }
 
-class _FilterSheet1State extends State<FilterSheet1> {
+class _FilterSheetState extends State<FilterSheet> {
   late TextEditingController _locationController;
   late String _selectedCategory;
   late String _selectedType;
@@ -19,7 +18,7 @@ class _FilterSheet1State extends State<FilterSheet1> {
   @override
   void initState() {
     super.initState();
-    final viewModel = Provider.of<CampingItemsViewModel>(context, listen: false);
+    final viewModel = Provider.of<CampingItemsSellerViewModel>(context, listen: false);
     
     _locationController = TextEditingController();
     _selectedCategory = viewModel.currentCategory;
@@ -38,7 +37,7 @@ class _FilterSheet1State extends State<FilterSheet1> {
   }
 
   void _applyFiltersImmediately() {
-    final viewModel = Provider.of<CampingItemsViewModel>(context, listen: false);
+    final viewModel = Provider.of<CampingItemsSellerViewModel>(context, listen: false);
     viewModel.applyFilters(
       category: _selectedCategory,
       type: _selectedType,
@@ -60,32 +59,12 @@ class _FilterSheet1State extends State<FilterSheet1> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 5,
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: theme.dividerColor,
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
           const Center(
             child: Text(
               'Filtrer les résultats',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          const SizedBox(height: 16),
-          
-          // Champ de recherche de localisation
-          const Text('Localisation', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          SearchLocationField(
-            controller: _locationController,
-          ),
-          
           const SizedBox(height: 16),
           
           // Filtre par catégorie
@@ -168,24 +147,13 @@ class _FilterSheet1State extends State<FilterSheet1> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.onSurface,
-                    side: BorderSide(color: colorScheme.outline),
-                  ),
                   onPressed: () {
                     setState(() {
                       _selectedCategory = 'All';
                       _selectedType = 'All';
                       _selectedCondition = 'All';
-                      _locationController.clear();
                     });
-                    final viewModel = Provider.of<CampingItemsViewModel>(context, listen: false);
-                    viewModel.applyFilters(
-                      category: 'All',
-                      type: 'All',
-                      condition: 'All',
-                      locationId: null,
-                    );
+                    _applyFiltersImmediately();
                     Navigator.pop(context);
                   },
                   child: const Text('Réinitialiser'),
@@ -194,19 +162,18 @@ class _FilterSheet1State extends State<FilterSheet1> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: colorScheme.primary,
                     foregroundColor: colorScheme.onPrimary,
                   ),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Appliquer'),
+                  child: const Text('Fermer'),
                 ),
               ),
             ],
           ),
         ],
-      )
-      ,
+      ),
     );
   }
 }

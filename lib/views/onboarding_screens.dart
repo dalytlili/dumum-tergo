@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:dumum_tergo/views/welcome_screen.dart';
 import 'package:dumum_tergo/constants/colors.dart';
 
@@ -12,33 +13,83 @@ class OnboardingScreens extends StatefulWidget {
 class _OnboardingScreensState extends State<OnboardingScreens> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  double _currentScrollValue = 0.0;
+  SystemUiOverlayStyle _systemUiOverlayStyle = SystemUiOverlayStyle.light;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(() {
+      setState(() {
+        _currentScrollValue = _pageController.page ?? 0.0;
+      });
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateSystemUIOverlayStyle();
+  }
+
+  void _updateSystemUIOverlayStyle() {
+    final brightness = Theme.of(context).brightness;
+    final newStyle = SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: brightness == Brightness.dark 
+          ? Brightness.light 
+          : Brightness.dark,
+      systemNavigationBarColor: brightness == Brightness.dark
+          ? Colors.black
+          : Colors.white,
+      systemNavigationBarIconBrightness: brightness == Brightness.dark
+          ? Brightness.light
+          : Brightness.dark,
+    );
+    
+    if (_systemUiOverlayStyle != newStyle) {
+      setState(() {
+        _systemUiOverlayStyle = newStyle;
+      });
+      SystemChrome.setSystemUIOverlayStyle(newStyle);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   final List<OnboardingPageData> _pages = [
     OnboardingPageData(
       title: 'Découvrez le Camping en Tunisie',
-      description:
-          'En Tunisie, la culture du Camping-cars est quasiment inexistante par rapport à d\'autres pays occidentaux où ce mode de voyage est plus courant..',
+      description: 'En Tunisie, la culture du Camping-cars est quasiment inexistante par rapport à d\'autres pays occidentaux où ce mode de voyage est plus courant.',
       imagePath: 'assets/images/image1.png',
+      bgColor: const Color(0xFFF5F5F5),
+      textColor: Colors.black87,
     ),
     OnboardingPageData(
       title: 'Dumum Tergo : Une Nouvelle Perspective',
-      description:
-          'D\'ou l\'importance de Dumum Tergo !\nNous vous offrons des expériences immersives combinant exploration des paysages et découvertes culturelles.',
-      imagePath: 'assets/images/image1.png',
+      description: 'D\'ou l\'importance de Dumum Tergo !\nNous vous offrons des expériences immersives combinant exploration des paysages et découvertes culturelles.',
+      imagePath: 'assets/images/image2.png',
+      bgColor: const Color(0xFFEDF7FF),
+      textColor: Colors.black87,
     ),
     OnboardingPageData(
       title: 'Voyagez Autrement',
-      description:
-          'Dumum Tergo vous invite à repenser votre façon de voyager.\nDécouvrez la liberté et l\'authenticité du voyage en camping-car.',
+      description: 'Dumum Tergo vous invite à repenser votre façon de voyager.\nDécouvrez la liberté et l\'authenticité du voyage en camping-car.',
       imagePath: 'assets/images/image3.png',
+      bgColor: const Color(0xFFFFF8E1),
+      textColor: Colors.black87,
     ),
   ];
 
   void _nextPage() {
     if (_currentPage < _pages.length - 1) {
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOutQuart,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOutQuint,
       );
     } else {
       Navigator.of(context).pushReplacement(
@@ -50,87 +101,35 @@ class _OnboardingScreensState extends State<OnboardingScreens> {
   void _previousPage() {
     if (_currentPage > 0) {
       _pageController.previousPage(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOutQuart,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOutQuint,
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      
+    final brightness = Theme.of(context).brightness;
+    final isDarkMode = brightness == Brightness.dark;
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _systemUiOverlayStyle,
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
-    //backgroundColor: Colors.transparent,
-    elevation: 0,
-    toolbarHeight: 0, // Cache l'AppBar mais garde la barre de statut
-  ),
-      body: Stack(
-        children: [
-          // Page View with smooth swipe
-          PageView.builder(
-            controller: _pageController,
-            itemCount: _pages.length,
-            onPageChanged: (int page) {
-              setState(() {
-                _currentPage = page;
-              });
-            },
-            itemBuilder: (context, index) {
-              return AnimatedBuilder(
-                animation: _pageController,
-                builder: (context, child) {
-                  double value = 1.0;
-                  if (_pageController.position.haveDimensions) {
-                    value = _pageController.page! - index;
-                    value = (1 - (value.abs() * 0.3)).clamp(0.0, 1.0);
-                  }
-                  return Transform.scale(
-                    scale: value,
-                    child: child,
-                  );
-                },
-                child: _OnboardingPage(
-                  data: _pages[index],
-                  onNextPressed: _nextPage,
-                  onBackPressed: _previousPage,
-                  isLastPage: index == _pages.length - 1,
-                  isFirstPage: index == 0,
-                ),
-              );
-            },
-          ),
-
-          // Custom Page Indicator
-          Positioned(
-            bottom: 100,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_pages.length, (index) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentPage == index ? 20 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _currentPage == index 
-                        ? AppColors.primary 
-                        : AppColors.primary.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                );
-              }),
-            ),
-          ),
-
-          // Skip Button (only show if not last page)
-          if (_currentPage < _pages.length - 1)
-            Positioned(
-              top: 50,
-              right: 20,
-              child: TextButton(
+          backgroundColor:isDarkMode ? Colors.transparent : Colors.white,
+          elevation: 0,
+          toolbarHeight: 60,
+          leading: _currentPage > 0 
+              ? IconButton(
+                  icon: Icon(Icons.arrow_back_ios, 
+                      color: isDarkMode ? Colors.white : Colors.black),
+                  onPressed: _previousPage,
+                )
+              : const SizedBox(),
+          actions: [
+            if (_currentPage < _pages.length - 1)
+              TextButton(
                 onPressed: () {
                   Navigator.of(context).pushReplacement(
                     MaterialPageRoute(builder: (_) => const WelcomeScreen()),
@@ -139,14 +138,144 @@ class _OnboardingScreensState extends State<OnboardingScreens> {
                 child: Text(
                   'Passer',
                   style: TextStyle(
-                    color: AppColors.primary,
+                    color: isDarkMode ? Colors.white : AppColors.primary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
+          ],
+        ),
+        body: AnimatedContainer(
+          duration: const Duration(milliseconds: 500),
+          color: isDarkMode ? Colors.black : _pages[_currentPage].bgColor,
+          child: Stack(
+            children: [
+              // Background elements with parallax effect
+              ..._buildParallaxBackground(isDarkMode),
+
+              // Page View
+              PageView.builder(
+                controller: _pageController,
+                itemCount: _pages.length,
+                onPageChanged: (int page) {
+                  setState(() {
+                    _currentPage = page;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final page = _pages[index];
+                  final delta = index - _currentScrollValue;
+                  final parallaxOffset = delta * 100;
+
+                  return _OnboardingPage(
+                    data: page,
+                    parallaxOffset: parallaxOffset,
+                    isLastPage: index == _pages.length - 1,
+                    isDarkMode: isDarkMode,
+                  );
+                },
+              ),
+
+              // Animated Dots Indicator
+              Positioned(
+                bottom: 80,
+                left: 0,
+                right: 0,
+                child: _buildAnimatedDots(isDarkMode),
+              ),
+
+              // Next Button
+              Positioned(
+                bottom: 10,
+                left: 24,
+                right: 24,
+                child: _buildAnimatedButton(isDarkMode),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildParallaxBackground(bool isDarkMode) {
+    return List.generate(5, (index) {
+      final double offset = _currentScrollValue * (index + 1) * 0.5;
+      return Positioned(
+        top: 100 + offset * 20,
+        left: -50 + offset * 10,
+        child: Opacity(
+          opacity: 0.1,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: (isDarkMode ? Colors.white : AppColors.primary).withOpacity(0.3),
             ),
-        ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildAnimatedDots(bool isDarkMode) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(_pages.length, (index) {
+        final double scale = 1.0 - (0.2 * (_currentScrollValue - index).abs().clamp(0.0, 1.0));
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          width: 8 * scale,
+          height: 8 * scale,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _currentPage == index
+                ? isDarkMode ? Colors.white : AppColors.primary
+                : (isDarkMode ? Colors.grey : AppColors.primary.withOpacity(0.3)),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildAnimatedButton(bool isDarkMode) {
+    final isLastPage = _currentPage == _pages.length - 1;
+    final buttonText = isLastPage ? 'Commencer' : 'Continuer';
+
+    return AnimatedScale(
+      scale: 1.0 - (0.1 * (_currentScrollValue - _currentPage).abs().clamp(0.0, 1.0)),
+      duration: const Duration(milliseconds: 200),
+      child: ElevatedButton(
+        onPressed: _nextPage,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isDarkMode ? Colors.white : AppColors.primary,
+          foregroundColor: isDarkMode ? Colors.black : Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 18),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          elevation: 5,
+          shadowColor: (isDarkMode ? Colors.white : AppColors.primary).withOpacity(0.4),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              buttonText,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (!isLastPage) 
+              const SizedBox(width: 2),
+            if (!isLastPage)
+              const Icon(Icons.arrow_forward, size: 20),
+          ],
+        ),
       ),
     );
   }
@@ -156,122 +285,81 @@ class OnboardingPageData {
   final String title;
   final String description;
   final String imagePath;
+  final Color bgColor;
+  final Color textColor;
 
   OnboardingPageData({
     required this.title,
     required this.description,
     required this.imagePath,
+    required this.bgColor,
+    required this.textColor,
   });
 }
 
 class _OnboardingPage extends StatelessWidget {
   final OnboardingPageData data;
-  final VoidCallback onNextPressed;
-  final VoidCallback onBackPressed;
+  final double parallaxOffset;
   final bool isLastPage;
-  final bool isFirstPage;
+  final bool isDarkMode;
 
   const _OnboardingPage({
     required this.data,
-    required this.onNextPressed,
-    required this.onBackPressed,
+    required this.parallaxOffset,
     required this.isLastPage,
-    required this.isFirstPage,
+    required this.isDarkMode,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final textColor = isDarkMode ? Colors.white : data.textColor;
+    final descriptionColor = isDarkMode ? Colors.white70 : Colors.black54;
+
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Back Button with animation
-          if (!isFirstPage)
-            AnimatedOpacity(
-              opacity: isFirstPage ? 0 : 1,
-              duration: const Duration(milliseconds: 300),
-              child: Align(
-                alignment: Alignment.topLeft,
-              
-              ),
-            ),
-
-          // Image with fade animation
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Hero(
-                tag: 'onboarding-image-${data.imagePath}',
-                child: Image.asset(
-                  data.imagePath,
-                  fit: BoxFit.contain,
-                ),
+          Transform.translate(
+            offset: Offset(0, parallaxOffset * 0.5),
+            child: Hero(
+              tag: 'onboarding-image-${data.imagePath}',
+              child: Image.asset(
+                data.imagePath,
+                height: MediaQuery.of(context).size.height * 0.4,
+                fit: BoxFit.contain,
               ),
             ),
           ),
+          const SizedBox(height: 10),
 
-          // Content with slide animation
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 500),
-            child: Column(
-              key: ValueKey(data.title),
-              children: [
-                Text(
-                  data.title,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                    height: 1.3,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  data.description,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[700],
-                    height: 1.5,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+          Transform.translate(
+            offset: Offset(parallaxOffset * 0.3, 0),
+            child: Text(
+              data.title,
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+                height: 1.2,
+              ),
+              textAlign: TextAlign.center,
             ),
           ),
+          const SizedBox(height: 8),
 
-          const SizedBox(height: 40),
-
-          // Next Button with scale animation
-          AnimatedScale(
-            scale: 1.0,
-            duration: const Duration(milliseconds: 200),
-            child: ElevatedButton(
-              onPressed: onNextPressed,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 40, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 5,
-                shadowColor: AppColors.primary.withOpacity(0.3),
+          Transform.translate(
+            offset: Offset(parallaxOffset * 0.2, 0),
+            child: Text(
+              data.description,
+              style: TextStyle(
+                fontSize: 16,
+                color: descriptionColor,
+                height: 1.5,
               ),
-              child: Text(
-                isLastPage ? 'Commencer l\'aventure' : 'Continuer',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              textAlign: TextAlign.center,
             ),
           ),
-
-          const SizedBox(height: 20),
         ],
       ),
     );

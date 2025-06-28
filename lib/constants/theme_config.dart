@@ -8,6 +8,7 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
+        error: AppColors.error, // Ajout de la couleur d'erreur
         surface: Colors.white,
         background: Colors.white,
       ),
@@ -19,8 +20,13 @@ class AppTheme {
         iconTheme: IconThemeData(color: Colors.grey[800]),
         titleTextStyle: TextStyle(
           color: Colors.grey[800],
-          fontSize: 16,
-          fontWeight: FontWeight.normal,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        toolbarTextStyle: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey[800],
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -32,7 +38,7 @@ class AppTheme {
       ),
       cardTheme: CardTheme(
         elevation: 2,
-        color: Colors.white, // Couleur de fond claire par défaut
+        color: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -53,19 +59,25 @@ class AppTheme {
       colorScheme: ColorScheme.dark(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        surface: const Color(0xFF121212), // Fond plus doux que noir pur
+        error: AppColors.error, // Ajout de la couleur d'erreur
+        surface: const Color(0xFF121212),
         background: const Color(0xFF121212),
       ),
       useMaterial3: true,
-    scaffoldBackgroundColor: Colors.black, // Écran 100% noir
+      scaffoldBackgroundColor: Colors.black,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: Colors.white),
         titleTextStyle: TextStyle(
           color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.normal,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
+        toolbarTextStyle: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
       ),
       textTheme: const TextTheme().apply(
@@ -81,7 +93,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1E1E1E), // Fond des champs de texte
+        fillColor: const Color(0xFF1E1E1E),
         labelStyle: TextStyle(color: Colors.grey[400]),
         hintStyle: TextStyle(color: Colors.grey[500]),
         prefixIconColor: Colors.grey[400],
@@ -94,10 +106,11 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: AppColors.primary, width: 1.5),
         ),
+        errorStyle: TextStyle(color: AppColors.error), // Style pour les messages d'erreur
       ),
       cardTheme: CardTheme(
         elevation: 2,
-        color: const Color(0xFF1E1E1E), // Fond des cartes en dark mode
+        color: const Color(0xFF1E1E1E),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),

@@ -1,9 +1,14 @@
+
 import 'package:dumum_tergo/constants/colors.dart';
-import 'package:dumum_tergo/viewmodels/user/SideMenuViewModel.dart';
+import 'package:dumum_tergo/viewmodels/seller/SideMenuViewModelseller.dart';
+import 'package:dumum_tergo/views/ContactUsScreen.dart';
+import 'package:dumum_tergo/views/HelpCenterScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/theme_viewmodel.dart';
 //import 'SettingsView.dart'; // Ensure SettingsView is imported
+import 'package:dumum_tergo/services/logout_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SideMenuView extends StatelessWidget {
   const SideMenuView({super.key});
@@ -11,10 +16,14 @@ class SideMenuView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeViewModel = context.watch<ThemeViewModel>();
-    final sideMenuViewModel = Provider.of<SideMenuViewModel>(context, listen: false);
+    final sideMenuViewModel = Provider.of<SideMenuViewModelSeller>(context, listen: false);
+    final LogoutService _logoutService = LogoutService();
+    final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
-    // Fetch user data when the menu is loaded
-    sideMenuViewModel.fetchUserData();
+    // Schedule the fetch after the build is complete
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      sideMenuViewModel.fetchProfileData();
+    });
 
     return Container(
       decoration: BoxDecoration(
@@ -43,7 +52,7 @@ class SideMenuView extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: themeViewModel.isDarkMode ? Colors.grey[900] : AppColors.primary,
                 ),
-                child: Consumer<SideMenuViewModel>(
+                child: Consumer<SideMenuViewModelSeller>(
                   builder: (context, viewModel, child) {
                     return Column(
                       mainAxisSize: MainAxisSize.min, // Adjust content height
@@ -103,48 +112,36 @@ child: CircleAvatar(
               ),
 
               // Menu Items
-              ListTile(
-                leading: const Icon(Icons.history),
-                title: const Text('Mes réservations'),
-                onTap: () {
-                                 Navigator.pushNamed(context, '/Reservation-Page');
-
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.campaign),
-                title: const Text('IA Camping'),
-                onTap: () {
-                  // Navigate to IA Camping page
-                },
-              ),
+            
               ListTile(
                 leading: const Icon(Icons.info_outline),
-                title: const Text('About Us'),
-                onTap: () {
-                  // Navigate to About Us page
-                },
+                title: const Text('Nous contacter'),
+                onTap: () => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ContactUsScreen(),
+    ),
+  ), 
               ),
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Settings'),
-                onTap: () {
-                  Navigator.pushNamed(context, '/SettingsView');
-                },
-              ),
+           
               ListTile(
                 leading: const Icon(Icons.help_outline),
-                title: const Text('Help & Support'),
-                onTap: () {
-                  // Navigate to Help & Support page
-                },
-              ),
+                title: const Text('Centre d\'aide'),
+        
+  onTap: () => Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => HelpCenterScreen(),
+    ),
+  ),              ),
+      
+           
               ListTile(
                 leading: const Icon(Icons.logout),
-                title: const Text('Logout'),
+                title: const Text('Déconnexion'),
                 onTap: () {
                   // Logic to logout
-                  _showLogoutDialog(context);
+                  _showLogoutConfirmationDialog(context, _logoutService, _storage);
                 },
               ),
             ],
@@ -154,39 +151,97 @@ child: CircleAvatar(
     );
   }
 
-  // Function to show a logout confirmation dialog
-  void _showLogoutDialog(BuildContext context) {
-    final sideMenuViewModel = Provider.of<SideMenuViewModel>(context, listen: false);
+void _showLogoutConfirmationDialog(BuildContext context, LogoutService logoutService, FlutterSecureStorage storage) {
+  final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+  final sideMenuViewModel = Provider.of<SideMenuViewModelSeller>(context, listen: false);
+  bool isLoading = false; // Local state for loading indicator
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // Close the dialog
-              },
-              child: const Text('Cancel'),
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
+            title: Text(
+              'Déconnexion',
+              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
             ),
-            TextButton(
-              onPressed: () async {
-                final token = await sideMenuViewModel.getToken();
-                if (token != null) {
-                await sideMenuViewModel.logoutUser(context, token);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Token not found')),
-                  );
-                }
-              },
-              child: const Text('Logout'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Êtes-vous sûr de vouloir vous déconnecter ?',
+                  style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
+                ),
+                if (isLoading) 
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isDarkMode ? Colors.white : AppColors.primary,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        );
-      },
-    );
-  }
+            actions: [
+              if (!isLoading) // Hide cancel button when loading
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'Annuler',
+                    style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
+                  ),
+                ),
+              TextButton(
+                onPressed: isLoading 
+                    ? null // Disable button when loading
+                    : () async {
+                        setState(() => isLoading = true);
+                        try {
+                          final token = await storage.read(key: 'seller_token');
+                          if (token != null) {
+                            // 1. Appeler le service de déconnexion
+                            await logoutService.logoutSeller(token);
+                            
+                            // 2. Supprimer tout le stockage
+                            await sideMenuViewModel.clearStorage();
+                            
+                            // 3. Rediriger vers l'écran de bienvenue
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/welcome', 
+                              (route) => false
+                            );
+                          }
+                        } catch (e) {
+                          setState(() => isLoading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Erreur lors de la déconnexion: $e')),
+                          );
+                        }
+                      },
+                child: isLoading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.red,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        'Déconnexion', 
+                        style: TextStyle(color: Colors.red),
+                      ),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 }

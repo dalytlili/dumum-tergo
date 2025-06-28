@@ -74,71 +74,76 @@ class PaymentViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> payement(BuildContext context) async {
-    _isLoading = true;
-    notifyListeners();
+Future<void> payement(BuildContext context) async {
+  _isLoading = true;
+  notifyListeners();
 
-    try {
+  try {
     String? token = await _storage.read(key: 'seller_token');
-    debugPrint('Token récupéré: $token'); // Log pour vérifier le token
+    debugPrint('Token récupéré: $token');
 
     if (token == null) throw Exception('Token not found');
 
-      final response = await http.post(
-        Uri.parse('https://dumum-tergo-backend.onrender.com/api/vendor/initiate-payment'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({
-          'amount': _amount,
-        }),
-      );
+    // Convertir le montant en millimes (1 TND = 1000 millimes)
+    final amountInMillimes = _amount != null ? (_amount! * 1000).toInt() : null;
 
-      debugPrint('Statut de la réponse: ${response.statusCode}');
-      debugPrint('Corps de la réponse: ${response.body}');
+    final response = await http.post(
+      Uri.parse('https://dumum-tergo-backend.onrender.com/api/vendor/initiate-payment'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'amount': amountInMillimes, // Envoyer le montant en millimes
+      }),
+    );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        debugPrint('Réponse JSON: $responseData');
+    debugPrint('Montant envoyé (en millimes): $amountInMillimes');
+    debugPrint('Statut de la réponse: ${response.statusCode}');
+    debugPrint('Corps de la réponse: ${response.body}');
 
-        if (responseData['result'] != null && responseData['result']['link'] != null) {
-          final String paymentLink = responseData['result']['link'];
-          debugPrint('Lien de paiement: $paymentLink');
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      debugPrint('Réponse JSON: $responseData');
 
-          if (await canLaunch(paymentLink)) {
-            await launch(paymentLink);
-          } else {
-            throw Exception('Impossible d\'ouvrir le lien de paiement');
-          }
+      if (responseData['result'] != null && responseData['result']['link'] != null) {
+        final String paymentLink = responseData['result']['link'];
+        debugPrint('Lien de paiement: $paymentLink');
+
+        if (await canLaunch(paymentLink)) {
+          await launch(paymentLink);
         } else {
-          throw Exception('Lien de paiement non trouvé dans la réponse');
+          throw Exception('Impossible d\'ouvrir le lien de paiement');
         }
       } else {
-        debugPrint('Erreur: ${response.statusCode}');
-        throw Exception('Erreur lors du paiement');
+        throw Exception('Lien de paiement non trouvé dans la réponse');
       }
-    } catch (e) {
-      debugPrint('Erreur lors du paiement: $e');
-      throw Exception('Erreur lors du paiement');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  void setAmount(String priceText) {
-    final RegExp regExp = RegExp(r'\d+');
-    final String? match = regExp.stringMatch(priceText);
-
-    if (match != null) {
-      _amount = double.parse(match);
     } else {
-      _amount = null;
+      debugPrint('Erreur: ${response.statusCode}');
+      throw Exception('Erreur lors du paiement');
     }
+  } catch (e) {
+    debugPrint('Erreur lors du paiement: $e');
+    throw Exception('Erreur lors du paiement');
+  } finally {
+    _isLoading = false;
     notifyListeners();
   }
+}
 
+void setAmount(String priceText) {
+  // Cette regex capture les nombres avec séparateur décimal (point ou virgule)
+  final RegExp regExp = RegExp(r'(\d+[.,]?\d*)');
+  final String? match = regExp.stringMatch(priceText);
+
+  if (match != null) {
+    // Remplace la virgule par un point si nécessaire et parse en double
+    _amount = double.parse(match.replaceFirst(',', '.'));
+  } else {
+    _amount = null;
+  }
+  notifyListeners();
+}
   @override
   void dispose() {
     _webSocketService.disconnect();

@@ -1,5 +1,4 @@
 import 'package:dumum_tergo/constants/colors.dart';
-import 'package:dumum_tergo/viewmodels/user/HomeViewModel.dart';
 import 'package:dumum_tergo/views/user/event/camping_events_screen.dart';
 import 'package:dumum_tergo/views/user/experiences/experiences_screen.dart';
 import 'package:dumum_tergo/views/user/experiences/user_search_screen.dart';
@@ -144,7 +143,7 @@ class _AnimatedNavBarState extends State<AnimatedNavBar> with SingleTickerProvid
     final Color unselectedItemColor = isDarkMode ? Colors.grey[400]! : Colors.grey[600]!;
     final Color shadowColor = isDarkMode ? Colors.transparent : Colors.black.withOpacity(0.1);
     final Color iconBackgroundColor = AppColors.primary.withOpacity(0.1);
-    final Color appBarColor = isDarkMode ? Colors.grey[850]! : Colors.white;
+    final Color appBarColor = isDarkMode ? Colors.black! : Colors.white;
 
     return Scaffold(
       appBar: AppBar(
@@ -161,7 +160,6 @@ class _AnimatedNavBarState extends State<AnimatedNavBar> with SingleTickerProvid
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: isDarkMode ? Colors.white : Colors.grey[800],
                 letterSpacing: 0.5,
               ),
             ),
@@ -170,7 +168,6 @@ class _AnimatedNavBarState extends State<AnimatedNavBar> with SingleTickerProvid
         backgroundColor: appBarColor,
         elevation: 1,
         iconTheme: IconThemeData(
-          color: isDarkMode ? Colors.white : Colors.grey[800],
         ),
         actions: [
           IconButton(

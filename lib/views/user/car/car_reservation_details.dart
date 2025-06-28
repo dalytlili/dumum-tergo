@@ -67,23 +67,6 @@ class _CarReservationDetailsState extends State<CarReservationDetails> {
     }
     _lastScrollPosition = currentPosition;
   }
-Future<Map<String, dynamic>> _fetchVendorRatings() async {
-        final token = await storage.read(key: 'token');
-
-  final response = await http.get(
-    Uri.parse('https://dumum-tergo-backend.onrender.com/api/vendor/${widget.car['vendor']['vendorId']}/ratings'),
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token', // Remplacez par votre token
-    },
-  );
-  
-  if (response.statusCode == 200) {
-    return jsonDecode(response.body);
-  } else {
-    throw Exception('Failed to load ratings');
-  }
-}
 
   int _calculateRentalDays() {
     final duration = widget.returnDate.difference(widget.pickupDate);
@@ -109,6 +92,7 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Votre offre'),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
       ),
       body: Column(
         children: [
@@ -119,60 +103,24 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Votre offre',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text('Suivant... Responsabilité et Caution'),
-                  const SizedBox(height: 24),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Container(height: 2, color: AppColors.primary),
-                            const SizedBox(height: 4),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Container(height: 2, color: Colors.grey),
-                            const SizedBox(height: 4),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Container(height: 2, color: Colors.grey),
-                            const SizedBox(height: 4),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
+                  _buildStepsHeader(),
                   const SizedBox(height: 24),
                 
                   // Détails du véhicule
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: Theme.of(context).dividerColor),
                       borderRadius: BorderRadius.circular(8),
+                      color: Theme.of(context).cardColor,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Détails du véhicule',
                           style: TextStyle(
-                            color: AppColors.primary,
+                            color: Theme.of(context).primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -199,7 +147,7 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                                       margin: const EdgeInsets.only(bottom: 16),
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(12),
-                                        color: Colors.grey[200],
+                                        color: Theme.of(context).hoverColor,
                                       ),
                                       child: ClipRRect(
                                         borderRadius: BorderRadius.circular(12),
@@ -227,8 +175,8 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                                                 );
                                               },
                                               errorBuilder: (context, error, stackTrace) {
-                                                return const Center(
-                                                  child: Icon(Icons.error, color: Colors.red),
+                                                return Center(
+                                                  child: Icon(Icons.error, ),
                                                 );
                                               },
                                             );
@@ -251,7 +199,7 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                                             decoration: BoxDecoration(
                                               color: currentPage == index
                                                   ? Theme.of(context).primaryColor
-                                                  : Colors.grey.withOpacity(0.5),
+                                                  : Theme.of(context).disabledColor,
                                               borderRadius: BorderRadius.circular(4),
                                             ),
                                           );
@@ -265,59 +213,96 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                           ),
                         Text(
                           '${widget.car['brand']} ${widget.car['model']} (${widget.car['year']})',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: Theme.of(context).textTheme.titleLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '${widget.car['color']} • ${widget.car['registrationNumber']}',
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7)),
                         ),
                         const SizedBox(height: 16),
                         
                         _buildFeatureRow('${widget.car['seats']} sièges', icon: Icons.airline_seat_recline_normal),
                         _buildFeatureRow('${widget.car['transmission']}', icon: Icons.settings),
-                        _buildFeatureRow('Kilométrage ${widget.car['mileagePolicy']}', icon: Icons.speed),
-                        Text(
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    _buildFeatureRow(
+      widget.car['mileagePolicy'] == 'limitée' 
+        ? 'Kilométrage: ${widget.car['mileageLimit']} km/jour (limité)'
+        : 'Kilométrage: illimité',
+      icon: Icons.speed
+    ),
+    if (widget.car['mileagePolicy'] == 'limitée')
+      Padding(
+        padding: const EdgeInsets.only(left: 32.0, top: 4.0, bottom: 8.0),
+        child: RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+            ),
+            children: [
+              TextSpan(text: 'En cas de dépassement: '),
+              TextSpan(
+                text: '1 TND par km supplémentaire',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    // ... autres caractéristiques
+  ],
+),                      Text(
                           'caractéristiques:',
-                          style: TextStyle(color: Colors.grey[600]),
+                          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7)),
                         ),
                         ...widget.car['features'].map<Widget>((feature) => 
                           _buildFeatureItem(feature, useDash: true)
                         ).toList(),
                         
                         const SizedBox(height: 16),
-                        const Divider(),
+                        Divider(color: Theme.of(context).dividerColor),
                         const SizedBox(height: 8),
                         
                         Text(
                           widget.car['location'] ?? 'Emplacement non spécifié',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).textTheme.titleLarge?.color,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         
                         Row(
                           children: [
                             CircleAvatar(
-                      radius: 16,
-                      backgroundImage: NetworkImage(
-                        'https://res.cloudinary.com/dcs2edizr/image/upload/${widget.car['vendor']['image'] ?? 'default.jpg'}',
-                      ),
-                      onBackgroundImageError: (_, __) {},
-                   
-                    ),
+                              radius: 16,
+                              backgroundImage: NetworkImage(
+                                'https://res.cloudinary.com/dcs2edizr/image/upload/${widget.car['vendor']['image'] ?? 'default.jpg'}',
+                              ),
+                              onBackgroundImageError: (_, __) {},
+                            ),
                             const SizedBox(width: 8),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   widget.car['vendor']['businessName'] ?? 'Vendor',
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).textTheme.titleLarge?.color,
+                                  ),
                                 ),
                                 const SizedBox(height: 2),
-                         
                               ],
                             ),
                           ],
@@ -327,38 +312,18 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                   ),
                   
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Ajoutez des options, complétez votre voyage',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: Theme.of(context).textTheme.titleLarge?.color,
                     ),
                   ),
                   const SizedBox(height: 16),
 
                   // Option Conducteur supplémentaire
-                  _buildOptionCard(
-                    title: 'Conducteur supplémentaire',
-                    price: '30 TND pièce par location',
-                    description: 'Partagez la conduite et gardez l\'esprit tranquille sachant que quelqu\'un d\'autre est couvert si besoin.',
-                    quantity: _additionalDriverQuantity,
-                    onIncrement: () {
-                      if (_additionalDriverQuantity < 2) {
-                        setState(() {
-                          _additionalDriverQuantity++;
-                          _additionalOptionsPrice += 30;
-                        });
-                      }
-                    },
-                    onDecrement: () {
-                      if (_additionalDriverQuantity > 0) {
-                        setState(() {
-                          _additionalDriverQuantity--;
-                          _additionalOptionsPrice -= 30;
-                        });
-                      }
-                    },
-                  ),
+               
 
                   const SizedBox(height: 16),
 
@@ -392,104 +357,154 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                     'Nous transmettrons vos demandes d\'options à ${widget.car['vendor']['businessName'] ?? 'Vendor'} et vous les paierez lors de la prise en charge. '
                     'La disponibilité et les tarifs des options ne peuvent pas être garantis avant votre arrivée.',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                       fontSize: 12,
                     ),
                   ),
 
-                  const SizedBox(height: 80), // Espace supplémentaire pour éviter que le bouton ne cache le contenu
                 ],
               ),
             ),
           ),
           
           // Partie fixe en bas avec animation
-           AnimatedContainer(
-  duration: const Duration(milliseconds: 300),
-  height: _showBottomBar ? null : 0,
-  padding: const EdgeInsets.all(16),
-  decoration: BoxDecoration(
-    color: Colors.white, // Fond blanc
-    borderRadius: BorderRadius.vertical( // Bordures arrondies
-      top: Radius.circular(20.0), // Arrondi seulement en haut
-    ),
-    border: Border.all(
-      color: Colors.grey[300]!, // Couleur de bordure gris clair
-      width: 1,
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.1),
-        blurRadius: 10,
-        offset: const Offset(0, -5),
-      ),
-    ],
-  ),
-  child: Column(
-    children: [
-      Text(
-        'Durée de location: ${_calculateRentalDays()} jours',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.grey[700], // Texte gris foncé
-        ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        'Prix par jour : ${widget.car['pricePerDay']} TND',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.grey[700], // Texte gris foncé
-        ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        'Prix total: ${_calculateTotalPrice().toStringAsFixed(2)} TND',
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-          color: Colors.black, // Texte noir
-        ),
-      ),
-      const SizedBox(height: 16),
-      Padding(
-        padding: const EdgeInsets.only(bottom: 20.0),
-        child: SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            height: _showBottomBar ? null : 0,
+            padding: const EdgeInsets.fromLTRB(12, 5, 12, 0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(20.0),
               ),
+              border: Border.all(
+                color: Theme.of(context).dividerColor,
+                width: 1,
+              ),
+              color: Theme.of(context).cardColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                ),
+              ],
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ResponsibilityPage(
-                    car: widget.car,          
-                    pickupLocation: widget.pickupLocation,
-                    pickupDate: widget.pickupDate,
-                    returnDate: widget.returnDate,
-                    totalPrice: _calculateTotalPrice(),
-                    additionalDrivers: _additionalDriverQuantity,
-                    childSeats: _childSeatQuantity,
+            child: Column(
+              children: [
+                Text(
+                  'Durée de location: ${_calculateRentalDays()} jours',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Prix par jour : ${widget.car['pricePerDay']} TND',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Prix total: ${_calculateTotalPrice().toStringAsFixed(2)} TND',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              );
-            },
-            child: const Text(
-              'Continuer la réservation',
-              style: TextStyle(fontSize: 16),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20.0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ResponsibilityPage(
+                              car: widget.car,          
+                              pickupLocation: widget.pickupLocation,
+                              pickupDate: widget.pickupDate,
+                              returnDate: widget.returnDate,
+                              totalPrice: _calculateTotalPrice(),
+                              additionalDrivers: _additionalDriverQuantity,
+                              childSeats: _childSeatQuantity,
+                            ),
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'Continuer la réservation',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                )
+              ],
             ),
-          ),
-        ),
-      )
-    ],
-  ),
-)
+          )
         ],
       ),
+    );
+  }
+
+  Widget _buildStepsHeader() {
+    return Column(
+      children: [
+        Text(
+          'Étape 1/3',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Votre offre',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.titleLarge?.color,
+          ),
+        ),
+        const SizedBox(height: 16),
+             Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+              )),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+             )),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey,
+                  borderRadius: BorderRadius.circular(2),
+               ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -508,8 +523,9 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
           padding: const EdgeInsets.all(16),
           margin: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: Theme.of(context).dividerColor),
             borderRadius: BorderRadius.circular(12),
+            color: Theme.of(context).cardColor,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,16 +542,17 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
+                            color: Theme.of(context).textTheme.titleLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           price,
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                           ),
                         ),
                       ],
@@ -547,16 +564,19 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove),
+                        icon: Icon(Icons.remove, color: Theme.of(context).iconTheme.color),
                         onPressed: quantity > 0 ? onDecrement : null,
                         visualDensity: VisualDensity.compact,
                       ),
                       Text(
                         '$quantity',
-                        style: const TextStyle(fontSize: 16),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).textTheme.titleLarge?.color,
+                        ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.add),
+                        icon: Icon(Icons.add, color: Theme.of(context).iconTheme.color),
                         onPressed: quantity < 2 ? onIncrement : null,
                         visualDensity: VisualDensity.compact,
                       ),
@@ -569,7 +589,7 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
               Text(
                 description,
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
                 ),
               ),
             ],
@@ -587,17 +607,20 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
         children: [
           useDash
               ? Text(' • ', style: TextStyle(
-                  color: AppColors.primary,
+                  color: Theme.of(context).primaryColor,
                   fontSize: 20,
                   fontWeight: FontWeight.bold))
               : Icon(Icons.check_circle_outline,
                   size: 18, 
-                  color: AppColors.primary),
+                  color: Theme.of(context).primaryColor),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               feature,
-              style: const TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+              ),
             ),
           ),
         ],
@@ -610,9 +633,15 @@ Future<Map<String, dynamic>> _fetchVendorRatings() async {
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
         children: [
-          if (icon != null) Icon(icon, size: 20, color: AppColors.primary),
+          if (icon != null) Icon(icon, size: 20, color: Theme.of(context).primaryColor),
           const SizedBox(width: 8),
-          Text(text, style: const TextStyle(fontSize: 16)),
+          Text(
+            text, 
+            style: TextStyle(
+              fontSize: 16,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
+            ),
+          ),
         ],
       ),
     );

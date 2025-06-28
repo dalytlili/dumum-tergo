@@ -352,13 +352,21 @@ void _showDistanceFilterBottomSheet() {
             child: Container(
               width: 60,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : Colors.grey.shade300,
-                ),
-              ),
+           decoration: BoxDecoration(
+  color: isSelected 
+      ? AppColors.primary 
+      : Theme.of(context).brightness == Brightness.dark 
+          ? Colors.grey.shade800 
+          : Colors.white,
+  borderRadius: BorderRadius.circular(10),
+  border: Border.all(
+    color: isSelected 
+        ? AppColors.primary 
+        : Theme.of(context).brightness == Brightness.dark 
+            ? Colors.grey.shade600 
+            : Colors.grey.shade300,
+  ),
+),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -425,7 +433,6 @@ void _showDistanceFilterBottomSheet() {
             ? const EdgeInsets.only(left: 16, right: 8)
             : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Card(
-          color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade100, width: 1),
@@ -563,7 +570,6 @@ void _showDistanceFilterBottomSheet() {
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -603,69 +609,107 @@ void _showDistanceFilterBottomSheet() {
                       ),
                     ),
 
-                 if (_nearbyEvents.isNotEmpty && _selectedDate == null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Row(
-                        children: [
-                          Text(
-                            'À proximité (${_distanceFilter.toStringAsFixed(0)} km)',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade800,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (_locationEnabled && _currentPosition != null)
-                         if (_locationEnabled && _currentPosition != null)
-  IconButton(
-    icon: const Icon(Icons.tune, size: 20),
-    onPressed: _showDistanceFilterBottomSheet,
-    tooltip: 'Filtrer par distance',
+                 if (_locationEnabled && _currentPosition != null && _selectedDate == null)
+  SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Text(
+            'À proximité (${_distanceFilter.toStringAsFixed(0)} km)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.tune, size: 20),
+            onPressed: _showDistanceFilterBottomSheet,
+            tooltip: 'Filtrer par distance',
+          ),
+        ],
+      ),
+    ),
   ),
-                        ],
-                      ),
-                    ),
+if (_locationEnabled && _currentPosition != null && _selectedDate == null)
+  SliverToBoxAdapter(
+    child: _nearbyEvents.isEmpty
+        ? Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  'Aucun événement à proximité dans un rayon de ${_distanceFilter.toStringAsFixed(0)} km',
+                  style: TextStyle(
+                    fontSize: 14,
                   ),
-                  if (_nearbyEvents.isNotEmpty && _selectedDate == null)
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 220,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _nearbyEvents.length,
-                          itemBuilder: (context, index) {
-                            return _buildEventCard(_nearbyEvents[index], isHorizontal: true);
-                          },
-                        ),
-                      ),
-                    ),
+                ),
+              ),
+            ),
+          )
+        : SizedBox(
+            height: 220,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _nearbyEvents.length,
+              itemBuilder: (context, index) {
+                return _buildEventCard(_nearbyEvents[index], isHorizontal: true);
+              },
+            ),
+          ),
+  ),
 
                   SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(
-                        _selectedDate == null 
-                            ? 'Tous les événements ' 
-                            : 'Événements du ${DateFormat('EEEE dd MMMM yyyy', 'fr_FR').format(_selectedDate!)}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        return _buildEventCard(_filteredEvents[index]);
-                      },
-                      childCount: _filteredEvents.length,
-                    ),
-                  ),
+  child: Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    child: Text(
+      _selectedDate == null 
+          ? 'Tous les événements' 
+          : 'Événements du ${DateFormat('EEEE dd MMMM yyyy', 'fr_FR').format(_selectedDate!)}',
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+if (_filteredEvents.isEmpty)
+  SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            _selectedDate == null
+                ? 'Aucun événement disponible'
+                : 'Aucun événement pour cette date',
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    ),
+  )
+else
+  SliverList(
+    delegate: SliverChildBuilderDelegate(
+      (context, index) {
+        return _buildEventCard(_filteredEvents[index]);
+      },
+      childCount: _filteredEvents.length,
+    ),
+  ),
                 ],
               ),
             ),

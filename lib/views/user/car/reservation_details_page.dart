@@ -131,7 +131,6 @@ class ReservationDetailsPage extends StatelessWidget {
         title,
         style: theme.textTheme.titleLarge?.copyWith(
           fontWeight: FontWeight.bold,
-          color: theme.primaryColor,
         ),
       ),
     );

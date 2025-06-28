@@ -1,6 +1,8 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:http_parser/http_parser.dart';
 import 'package:dumum_tergo/constants/api_constants.dart';
 
 class ReservationService {
@@ -23,80 +25,109 @@ class ReservationService {
     required int additionalDrivers,
     required String location,
     required String driverEmail,
-    required String driverFirstName,
-    required String driverLastName,
-    required String driverBirthDate,
     required String driverPhoneNumber,
-    required String driverCountry,
+    required File permisRectoImage,
+    required File permisVersoImage,
+    File? cinRectoImage,
+    File? cinVersoImage,
+    File? passportImage,
   }) async {
     try {
       final token = await _getAuthToken();
       if (token == null) throw Exception('Token d\'authentification non trouvé');
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/api/reservation'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          "carId": carId,
-          "startDate": startDate.toIso8601String(),
-          "endDate": endDate.toIso8601String(),
-          "childSeats": childSeats,
-          "additionalDrivers": additionalDrivers,
-          "location": location,
-          "driverEmail": driverEmail,
-          "driverFirstName": driverFirstName,
-          "driverLastName": driverLastName,
-          "driverBirthDate": driverBirthDate,
-          "driverPhoneNumber": driverPhoneNumber,
-          "driverCountry": driverCountry,
-        }),
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/reservation'),
       );
 
-      if (response.statusCode == 201) {
-        if (response.body.isEmpty) {
-          throw Exception('Réponse vide du serveur');
-        }
+      request.headers['Authorization'] = 'Bearer $token';
+      request.headers['Accept'] = 'application/json';
 
+      request.fields.addAll({
+        'carId': carId,
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
+        'childSeats': childSeats.toString(),
+        'additionalDrivers': additionalDrivers.toString(),
+        'location': location,
+        'driverEmail': driverEmail,
+        'driverPhoneNumber': driverPhoneNumber,
+        'documentType': passportImage != null ? 'passport' : 'cin',
+      });
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'permisRecto', 
+        permisRectoImage.path,
+        contentType: MediaType('image', 'jpeg'),
+      ));
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'permisVerso',
+        permisVersoImage.path,
+        contentType: MediaType('image', 'jpeg'),
+      ));
+
+      if (cinRectoImage != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'cinRecto', 
+          cinRectoImage.path,
+          contentType: MediaType('image', 'jpeg'),
+        ));
+      }
+
+      if (cinVersoImage != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'cinVerso', 
+          cinVersoImage.path,
+          contentType: MediaType('image', 'jpeg'),
+        ));
+      }
+
+      if (passportImage != null) {
+        request.files.add(await http.MultipartFile.fromPath(
+          'passport', 
+          passportImage.path,
+          contentType: MediaType('image', 'jpeg'),
+        ));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 201) {
         final decodedResponse = json.decode(response.body);
         
         if (decodedResponse is! Map<String, dynamic>) {
           throw Exception('Format de réponse invalide');
         }
 
-        // Gestion du cas où car est null
-        if (decodedResponse['car'] == null) {
-          decodedResponse['car'] = {
-            '_id': carId,
-            'brand': 'Inconnu',
-            'model': 'Inconnu',
-            'images': [],
-          };
-        }
+        decodedResponse['car'] ??= {
+          '_id': carId,
+          'brand': 'Inconnu',
+          'model': 'Inconnu',
+          'images': [],
+        };
 
         return decodedResponse;
       } else {
         final errorBody = json.decode(response.body);
-        throw Exception(errorBody['message'] ?? 'Échec de la réservation (${response.statusCode})');
+        throw Exception(errorBody['message'] ?? 
+               errorBody['error'] ?? 
+               'Échec de la réservation (${response.statusCode})');
       }
-    } on http.ClientException catch (e) {
-      throw Exception('Erreur réseau: ${e.message}');
-    } on FormatException catch (e) {
-      throw Exception('Erreur de format: ${e.message}');
     } catch (e) {
-      throw Exception('Échec de la réservation: $e');
+      throw Exception('Échec de la réservation: ${e.toString()}');
     }
   }
 
   Future<List<dynamic>> getUserReservations() async {
     try {
       final token = await _getAuthToken();
-      if (token == null) throw Exception('Token d\'authentification non trouvé');
+      if (token == null) throw Exception('Token non trouvé');
 
       final response = await http.get(
-        Uri.parse('$_baseUrl/api/reservation/user'),
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/reservation/user'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -105,33 +136,38 @@ class ReservationService {
 
       if (response.statusCode == 200) {
         final decoded = json.decode(response.body);
-        
-        if (decoded is! List) {
-          throw Exception('Format de réponse invalide');
-        }
+        return decoded is List ? decoded : [];
+      } else {
+        throw Exception('Échec du chargement (${response.statusCode})');
+      }
+    } catch (e) {
+      throw Exception('Erreur: $e');
+    }
+  }
 
-        // Nettoyage des données pour gérer les valeurs null
-        return decoded.map((reservation) {
-          if (reservation['car'] == null) {
-            reservation['car'] = {
-              '_id': 'inconnu',
-              'brand': 'Inconnu',
-              'model': 'Inconnu',
-              'images': [],
-            };
-          }
-          return reservation;
-        }).toList();
+  Future<bool> cancelReservation(String reservationId) async {
+    try {
+      final token = await _getAuthToken();
+      if (token == null) throw Exception('Token d\'authentification non trouvé');
+
+      final response = await http.delete(
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/reservation/$reservationId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return true;
       } else {
         final errorBody = json.decode(response.body);
-        throw Exception(errorBody['message'] ?? 'Échec du chargement (${response.statusCode})');
+        throw Exception(errorBody['message'] ?? 
+               errorBody['error'] ?? 
+               'Échec de l\'annulation (${response.statusCode})');
       }
-    } on http.ClientException catch (e) {
-      throw Exception('Erreur réseau: ${e.message}');
-    } on FormatException catch (e) {
-      throw Exception('Erreur de format: ${e.message}');
     } catch (e) {
-      throw Exception('Échec du chargement: $e');
+      throw Exception('Échec de l\'annulation: ${e.toString()}');
     }
   }
 }

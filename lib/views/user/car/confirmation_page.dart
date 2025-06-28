@@ -5,25 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:dumum_tergo/constants/colors.dart';
 import 'package:dumum_tergo/constants/countries.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class ConfirmationPage extends StatefulWidget {
   final Map<String, dynamic> car;
- final DateTime pickupDate;
+  final DateTime pickupDate;
   final DateTime returnDate;
   final String pickupLocation;
-  final double totalPrice; // Nouveau paramètre
- final int additionalDrivers; // Ajoutez cette ligne
+  final double totalPrice;
+  final int additionalDrivers;
   final int childSeats;
 
   const ConfirmationPage({
     Key? key,
-   required this.car,
-            required this.pickupLocation,
-    required this.totalPrice, // Ajout du paramètre
-
+    required this.car,
+    required this.pickupLocation,
+    required this.totalPrice,
     required this.pickupDate,
     required this.returnDate,
-        required this.additionalDrivers, // Ajoutez cette ligne
+    required this.additionalDrivers,
     required this.childSeats,
   }) : super(key: key);
 
@@ -35,36 +36,666 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController dateNaissanceController = TextEditingController();
-  bool _isLoading = false; // Ajoutez cette variable
-
+  bool _isLoading = false;
+  String _documentType = 'cin'; // 'cin' ou 'passport'
+  File? _passportImage;
   String email = "";
-  String prenom = "";
-  String nom = "";
-  String pays = "Tunisie";
+  String telephone = "";
+
   Country selectedCountry = Country.parse("TN");
-  String? selectedDay;
-  String? selectedMonth;
-  String? selectedYear;
   bool isDateValid = true;
 
-  String formatDate(DateTime date) {
-    return DateFormat('EEE d MMM · HH:mm', 'fr_FR').format(date);
-  }
- // Listes pour les dropdowns
-  final List<String> days = List.generate(31, (index) => (index + 1).toString());
- final List<String> months = [
-    'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-    'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-  ];
-  final List<String> years = List.generate(100, (index) => (DateTime.now().year - 17 - index).toString());
+  // Images
+  File? _permisRectoImage;
+  File? _permisVersoImage;
+  File? _cinRectoImage;
+  File? _cinVersoImage;
 
-  // Validation de la date
-  void _validateDate() {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Confirmation de réservation"),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header avec étapes
+            _buildStepsHeader(),
+            const SizedBox(height: 24),
+            
+            // Carte d'information
+            _buildInfoCard(),
+            const SizedBox(height: 32),
+            
+            // Formulaire
+            Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Section Informations conducteur
+                  _buildSectionTitle(
+                    title: "Informations sur le conducteur principal",
+                    subtitle: "Conformes au permis de conduire",
+                  ),
+                  
+                  // Champ Email
+                  _buildEmailField(),
+                  const SizedBox(height: 20),
+                  
+                  // Champ Téléphone
+                  _buildPhoneField(),
+                  const SizedBox(height: 20),
+                  
+                  // Section Documents
+                  _buildDocumentsSection(),
+                  const SizedBox(height: 20),
+                  
+                  // Bouton de confirmation
+                  _buildConfirmationButton(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepsHeader() {
+    return Column(
+      children: [
+        const Text(
+          'Étape 3/3',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Confirmez votre réservation',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+              ),
+            ),),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+              ),
+            ),),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Container(
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(2),
+               ) ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+Widget _buildInfoCard() {
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: AppColors.primary.withOpacity(0.05),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+    ),
+    child: Column(
+      children: [
+        Row(
+          children: [
+            Icon(Icons.check_circle, color: AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              "Votre véhicule est disponible",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          "Réservez maintenant pour garantir votre véhicule "
+          "${widget.car['brand']} ${widget.car['model']} "
+          "à ${widget.pickupLocation}",
+          style: TextStyle(
+            color: Colors.grey[700],
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 16),
+       Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Début",
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: DateFormat('EEE d MMM', 'fr_FR').format(widget.pickupDate) + '\n',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              TextSpan(
+                text: DateFormat('HH:mm', 'fr_FR').format(widget.pickupDate),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          textAlign: TextAlign.start,
+        ),
+      ],
+    ),
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Fin",
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: DateFormat('EEE d MMM', 'fr_FR').format(widget.returnDate) + '\n',
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              TextSpan(
+                text: DateFormat('HH:mm', 'fr_FR').format(widget.returnDate),
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+          textAlign: TextAlign.start,
+        ),
+      ],
+    ),
+    Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          "Total",
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12,
+          ),
+        ),
+        Text(
+          "${widget.totalPrice.toStringAsFixed(2)} TND",
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            color: AppColors.primary,
+          ),
+        ),
+      ],
+    ),
+  ],
+),
+
+      ],
+    ),
+  );
+}
+
+  Widget _buildSectionTitle({required String title, String? subtitle}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              subtitle,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      decoration: InputDecoration(
+        labelText: "Adresse e-mail *",
+        labelStyle: TextStyle(color: Colors.grey[700]),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 2),
+        ),
+        hintText: "exemple@email.com",
+        hintStyle: TextStyle(color: Colors.grey[400]),
+        prefixIcon: const Icon(Icons.email_outlined),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return "Veuillez entrer votre e-mail";
+        }
+        final emailRegex = RegExp(
+          r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+        );
+        if (!emailRegex.hasMatch(value)) {
+          return "Veuillez entrer une adresse e-mail valide";
+        }
+        return null;
+      },
+      onSaved: (value) => email = value!,
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return TextFormField(
+      controller: phoneNumberController,
+      keyboardType: TextInputType.phone,
+      decoration: InputDecoration(
+        labelText: "Numéro de téléphone *",
+        labelStyle: TextStyle(color: Colors.grey[700]),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 2),
+        ),
+        prefixIcon: InkWell(
+          onTap: () {
+            showCountryPicker(
+              context: context,
+              showPhoneCode: true,
+              countryListTheme: CountryListThemeData(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              onSelect: (Country country) {
+                setState(() {
+                  selectedCountry = country;
+                });
+              },
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  selectedCountry.flagEmoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '+${selectedCountry.phoneCode}',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const Icon(Icons.arrow_drop_down),
+              ],
+            ),
+          ),
+        ),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Veuillez entrer votre numéro de téléphone';
+        }
+        if (!RegExp(r'^\d+$').hasMatch(value)) {
+          return 'Veuillez entrer un numéro valide';
+        }
+        return null;
+      },
+      onSaved: (value) => telephone = value!,
+    );
+  }
+Widget _buildDocumentTypeSelector() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        "Type de pièce d'identité *",
+        style: TextStyle(fontWeight: FontWeight.w500),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: RadioListTile<String>(
+              title: const Text('CIN'),
+              value: 'cin',
+              groupValue: _documentType,
+              onChanged: (String? value) {
+                setState(() {
+                  _documentType = value!;
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+          ),
+          Expanded(
+            child: RadioListTile<String>(
+              title: const Text('Passeport'),
+              value: 'passport',
+              groupValue: _documentType,
+              onChanged: (String? value) {
+                setState(() {
+                  _documentType = value!;
+                });
+              },
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
+Widget _buildDocumentsSection() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _buildSectionTitle(
+        title: "Documents requis",
+        subtitle: "Veuillez télécharger les documents suivants",
+      ),
+      
+      // Choix du type de document
+      _buildDocumentTypeSelector(),
+      const SizedBox(height: 16),
+      
+      // Permis recto/verso (toujours requis)
+      Row(
+        children: [
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: _buildDocumentUpload(
+                title: "Permis (Recto)",
+                imageFile: _permisRectoImage,
+                imageType: 'permis_recto',
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 4),
+              child: _buildDocumentUpload(
+                title: "Permis (Verso)",
+                imageFile: _permisVersoImage,
+                imageType: 'permis_verso',
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      
+      // Section conditionnelle selon le type de document
+      if (_documentType == 'cin')
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _buildDocumentUpload(
+                  title: "CIN (Recto)",
+                  imageFile: _cinRectoImage,
+                  imageType: 'cin_recto',
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: _buildDocumentUpload(
+                  title: "CIN (Verso)",
+                  imageFile: _cinVersoImage,
+                  imageType: 'cin_verso',
+                ),
+              ),
+            ),
+          ],
+        )
+      else
+        _buildDocumentUpload(
+          title: "Passeport",
+          imageFile: _passportImage,
+          imageType: 'passport',
+        ),
+      
+      // Validation des documents
+      if (_permisRectoImage == null || _permisVersoImage == null || 
+          (_documentType == 'cin' && (_cinRectoImage == null || _cinVersoImage == null)) ||
+          (_documentType == 'passport' && _passportImage == null))
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Text(
+            "* Veuillez télécharger tous les documents requis",
+            style: TextStyle(
+              color: Colors.red[700],
+              fontSize: 12,
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+Widget _buildDocumentUpload({
+  required String title,
+  required File? imageFile,
+  required String imageType,
+}) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      const SizedBox(height: 6),
+      GestureDetector(
+        onTap: () => _showImageSourceDialog(imageType),
+        child: Container(
+          height: 120,
+          width: double.infinity, // Prend toute la largeur disponible
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.grey[300]!,
+              width: 1.5,
+            ),
+          ),
+          child: imageFile != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(imageFile, fit: BoxFit.cover),
+                )
+              : Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.cloud_upload_outlined,
+                      size: 32,
+                      color: Colors.grey[500],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Télécharger',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    ],
+  );
+}
+  Widget _buildConfirmationButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _submitReservation,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+          shadowColor: Colors.transparent,
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Text(
+                "CONFIRMER LA RÉSERVATION",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  letterSpacing: 0.5,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Future<void> _showImageSourceDialog(String imageType) async {
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppColors.primary),
+              title: const Text('Prendre une photo'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera, imageType: imageType);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: AppColors.primary),
+              title: const Text('Choisir depuis la galerie'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery, imageType: imageType);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source, {required String imageType}) async {
+  final picker = ImagePicker();
+  final pickedFile = await picker.pickImage(source: source);
+
+  if (pickedFile != null) {
     setState(() {
-      isDateValid = selectedDay != null && selectedMonth != null && selectedYear != null;
+      final file = File(pickedFile.path);
+      switch (imageType) {
+        case 'permis_recto':
+          _permisRectoImage = file;
+          break;
+        case 'permis_verso':
+          _permisVersoImage = file;
+          break;
+        case 'cin_recto':
+          _cinRectoImage = file;
+          break;
+        case 'cin_verso':
+          _cinVersoImage = file;
+          break;
+        case 'passport':
+          _passportImage = file;
+          break;
+      }
     });
   }
- Future<void> _submitReservation() async {
+}
+
+
+Future<void> _submitReservation() async {
   if (!(_formKey.currentState?.validate() ?? false)) return;
   if (!isDateValid) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -76,13 +707,23 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
     return;
   }
 
+  // Vérification des images
+  if (_permisRectoImage == null || _permisVersoImage == null || 
+      (_documentType == 'cin' && (_cinRectoImage == null || _cinVersoImage == null)) ||
+      (_documentType == 'passport' && _passportImage == null)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Veuillez télécharger tous les documents requis'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+
   setState(() => _isLoading = true);
   _formKey.currentState!.save();
 
   try {
-    final monthIndex = months.indexOf(selectedMonth!) + 1;
-    final formattedBirthDate = '${selectedYear}-${monthIndex.toString().padLeft(2, '0')}-${selectedDay!.padLeft(2, '0')}';
-
     final reservationData = await ReservationService().createReservation(
       carId: widget.car['_id'],
       startDate: widget.pickupDate,
@@ -91,27 +732,27 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
       additionalDrivers: widget.additionalDrivers,
       location: widget.pickupLocation,
       driverEmail: email,
-      driverFirstName: prenom,
-      driverLastName: nom,
-      driverBirthDate: formattedBirthDate,
       driverPhoneNumber: '+${selectedCountry.phoneCode}${phoneNumberController.text}',
-      driverCountry: pays,
+      permisRectoImage: _permisRectoImage!,
+      permisVersoImage: _permisVersoImage!,
+      cinRectoImage: _documentType == 'cin' ? _cinRectoImage : null,
+      cinVersoImage: _documentType == 'cin' ? _cinVersoImage : null,
+      passportImage: _documentType == 'passport' ? _passportImage : null,
     );
 
     if (!mounted) return;
     
-    // Créer un objet combiné contenant à la fois les données de réservation et la voiture
     final combinedData = {
       ...reservationData,
-      'car': widget.car, // Ajoutez l'objet car complet
-      'totalPrice': widget.totalPrice, // Ajoutez le prix total
+      'car': widget.car,
+      'totalPrice': widget.totalPrice,
     };
 
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => ReservationSuccessPage(
-          reservationData: combinedData, // Envoyez les données combinées
+          reservationData: combinedData,
         ),
       ),
     );
@@ -129,360 +770,4 @@ class _ConfirmationPageState extends State<ConfirmationPage> {
     }
   }
 }
-  @override
-  Widget build(BuildContext context) {
-    String telephone;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Confirmation"),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            const Text(
-              'Confirmation',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            const Text('Prochaine étape : Confirmer la réservation'),
-            const SizedBox(height: 24),
-
-                         Row(
-  children: [
-    Expanded(
-      child: Column(
-        children: [
-          Container(height: 2, color: AppColors.primary),
-          const SizedBox(height: 4),
-        ],
-      ),
-    ),
-    Expanded(
-      child: Column(
-        children: [
-          Container(height: 2, color: AppColors.primary),
-          const SizedBox(height: 4),
-        ],
-      ),
-    ),
-    Expanded(
-      child: Column(
-        children: [
-          Container(height: 2, color: AppColors.primary),
-          const SizedBox(height: 4),
-        ],
-      ),
-    ),
-  ],
-),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Préparez-vous à vivre une nouvelle aventure...",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Réservez dès maintenant, votre voiture vous attend déjà !",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            const Text(
-              "Informations sur le conducteur principal",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Conformes au permis de conduire",
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  // Email
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: "Adresse e-mail *",
-                      border: OutlineInputBorder(),
-                      hintText: "Nous pourrons ainsi vous envoyer l'e-mail de confirmation",
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Veuillez entrer votre e-mail";
-                      }
-                      final emailRegex = RegExp(
-                        r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
-                      );
-                      if (!emailRegex.hasMatch(value)) {
-                        return "Veuillez entrer une adresse e-mail valide";
-                      }
-                      return null;
-                    },
-                    onSaved: (value) => email = value!,
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Prénom
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: "Prénom *",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Veuillez entrer votre prénom";
-                      }
-                      return null;
-                    },
-                    onSaved: (value) => prenom = value!,
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Nom
-                  TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: "Nom *",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return "Veuillez entrer votre nom";
-                      }
-                      return null;
-                    },
-                    onSaved: (value) => nom = value!,
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Date de naissance
-                  Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Date de naissance *",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                ),
-                const SizedBox(height: 8),
-                
-                 Row(
-  children: [
-    Expanded(
-      child: DropdownButtonFormField<String>(
-        isExpanded: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        ),
-        hint: const Text('Jour'),
-        value: selectedDay,
-        items: days.map((day) => DropdownMenuItem(value: day, child: Text(day))).toList(),
-        onChanged: (value) {
-          setState(() {
-            selectedDay = value;
-            _validateDate();
-          });
-        },
-      ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-      flex: 2,
-      child: DropdownButtonFormField<String>(
-        isExpanded: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        ),
-        hint: const Text('Mois'),
-        value: selectedMonth,
-        items: months.map((month) => DropdownMenuItem(value: month, child: Text(month))).toList(),
-        onChanged: (value) {
-          setState(() {
-            selectedMonth = value;
-            _validateDate();
-          });
-        },
-      ),
-    ),
-    const SizedBox(width: 8),
-    Expanded(
-      child: DropdownButtonFormField<String>(
-        isExpanded: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-        ),
-        hint: const Text('Année'),
-        value: selectedYear,
-        items: years.map((year) => DropdownMenuItem(value: year, child: Text(year))).toList(),
-        onChanged: (value) {
-          setState(() {
-            selectedYear = value;
-            _validateDate();
-          });
-        },
-      ),
-    ),
-  ],
-
-                ),
-                if (!isDateValid)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      "Veuillez sélectionner une date complète",
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-                  const SizedBox(height: 15),
-
-                  // Numéro de téléphone avec country picker
-                  TextFormField(
-                    controller: phoneNumberController,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      hintText: 'Numéro de téléphone',
-                      prefixIcon: InkWell(
-                        onTap: () {
-                          showCountryPicker(
-                            context: context,
-                            showPhoneCode: true,
-                            onSelect: (Country country) {
-                              setState(() {
-                                selectedCountry = country;
-                              });
-                            },
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                selectedCountry.flagEmoji,
-                                style: const TextStyle(fontSize: 20),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '+${selectedCountry.phoneCode}',
-                                style: TextStyle(
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white70
-                                      : Colors.grey[700],
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                Icons.arrow_drop_down,
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white70
-                                    : Colors.grey[700],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(
-                            color: AppColors.primary, width: 1.5),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Veuillez entrer votre numéro de téléphone';
-                      }
-                      if (!RegExp(r'^\d+$').hasMatch(value)) {
-                        return 'Veuillez entrer un numéro valide';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) => telephone = value!,
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Pays de résidence
-                  PopupMenuButton<String>(
-                    itemBuilder: (BuildContext context) {
-                      return countries.map((String value) {
-                        return PopupMenuItem<String>(
-                          value: value,
-                          child: SizedBox(
-                            width: 200,
-                            child: Text(value),
-                          ),
-                        );
-                      }).toList();
-                    },
-                    onSelected: (value) => setState(() {
-                      pays = value;
-                    }),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: "Pays de résidence *",
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.arrow_drop_down),
-                      ),
-                      child: Text(pays),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Bouton de soumission
-             ElevatedButton(
-        onPressed: _isLoading ? null : _submitReservation,
-        child: _isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : const Text("Confirmer la réservation"),
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 50),
-          backgroundColor: AppColors.primary,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-                                    const SizedBox(height: 20),
-
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

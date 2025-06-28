@@ -140,13 +140,17 @@ Future<void> _clearAuthData() async {
 }
 
 
-  Future<void> loginWithGoogle(BuildContext context) async {
+Future<void> loginWithGoogle(BuildContext context) async {
     final url = 'https://dumum-tergo-backend.onrender.com/auth/google';
 
     try {
       final result = await FlutterWebAuth2.authenticate(
         url: url,
-        callbackUrlScheme: 'dumumtergo',
+callbackUrlScheme: "dumumtergo",  // Toujours juste le schéma
+  options: const FlutterWebAuth2Options(
+    useWebview: false, // Active la WebView intégrée
+    preferEphemeral: false, // Facultatif : navigation privée
+  ),
       );
 
       final uri = Uri.parse(result);
@@ -183,6 +187,7 @@ Future<void> _clearAuthData() async {
       );
     }
   }
+
 
 
  Future<void> loginWithFacebook(BuildContext context) async {
@@ -306,7 +311,6 @@ Future<void> _storeUserData(Map<String, dynamic> userData) async {
   await storage.write(key: 'userName', value: userData['name']);
   await storage.write(key: 'userEmail', value: userData['email']);
   await storage.write(key: 'userMobile', value: userData['mobile']);
-  await storage.write(key: 'userImage', value: userData['image']);
   await storage.write(key: 'userGenre', value: userData['genre']);
   await storage.write(key: 'userRole', value: userData['role']);
   await storage.write(key: 'isVerified', value: userData['is_verified'].toString());

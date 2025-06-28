@@ -123,8 +123,7 @@ class _VendorShopScreenState extends State<VendorShopScreen> {
       ],
     ),
     borderRadius: BorderRadius.only(
-      bottomLeft: Radius.circular(20.0),
-      bottomRight: Radius.circular(20.0),
+    
     ),
   ),
 ),
@@ -159,7 +158,7 @@ class _VendorShopScreenState extends State<VendorShopScreen> {
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 0.52,
+                      childAspectRatio: 0.59,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
@@ -232,7 +231,6 @@ Widget _buildVendorInfoOverlay(BuildContext context, Vendor vendor) {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 8),

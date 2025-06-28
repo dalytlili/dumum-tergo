@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:dumum_tergo/services/logout_service.dart';
 import 'package:dumum_tergo/views/user/auth/sign_in_screen.dart';
 import 'package:flutter/material.dart';
@@ -9,23 +8,32 @@ class SideMenuViewModel with ChangeNotifier {
   final LogoutService logoutService;
   bool _isDarkMode = false;
   bool _isLoading = false;
-  String _errorMessage = '';
-  String _name = ''; // User name
-  String _profileImageUrl = ''; // Profile image URL
+    bool _isDataLoaded = false; // Nouveau flag pour suivre le chargement initial
 
+  String _errorMessage = '';
+  String _name = ''; 
+  String _profileImageUrl = ''; 
   bool get isDarkMode => _isDarkMode;
   bool get isLoading => _isLoading;
+    bool get isDataLoaded => _isDataLoaded; // Getter pour le nouveau flag
+
   String get errorMessage => _errorMessage;
   String get name => _name;
   String get profileImageUrl => _profileImageUrl;
-
   SideMenuViewModel({required this.logoutService});
 
   Future<String?> getToken() async {
     return await storage.read(key: 'token');
   }
-
-  Future<void> fetchUserData() async {
+void resetUserData() {
+  _name = '';
+  _profileImageUrl = '';
+  _isDataLoaded = false;
+  notifyListeners();
+}
+ Future<void> fetchUserData() async {
+    if (_isDataLoaded) return; // Ne pas recharger si déjà fait
+    
     try {
       _isLoading = true;
       notifyListeners();
@@ -37,23 +45,21 @@ class SideMenuViewModel with ChangeNotifier {
         throw Exception('Veuillez vous reconnecter');
       }
 
-      // Première tentative
       var response = await _makeProfileRequest(token);
 
-      // Si token expiré (401)
       if (response.statusCode == 401) {
         try {
           final newTokens = await _refreshToken(refreshToken);
           await _storeNewTokens(newTokens);
           response = await _makeProfileRequest(newTokens['accessToken']);
         } catch (e) {
-          await _clearTokens();
           throw Exception('Session expirée, veuillez vous reconnecter');
         }
       }
 
       if (response.statusCode == 200) {
         await _processProfileResponse(response);
+        _isDataLoaded = true; // Marquer les données comme chargées
       } else {
         throw Exception('Erreur: ${response.statusCode}');
       }
@@ -78,7 +84,6 @@ class SideMenuViewModel with ChangeNotifier {
       final response = await http.post(
         Uri.parse('https://dumum-tergo-backend.onrender.com/api/refresh-token'),
                    headers: {'Authorization': 'Bearer $refreshToken'},
-
       );
 
       if (response.statusCode == 200) {
@@ -106,16 +111,9 @@ class SideMenuViewModel with ChangeNotifier {
     ]);
   }
 
-  Future<void> _clearTokens() async {
-    await Future.wait([
-      storage.delete(key: 'token'),
-      storage.delete(key: 'refreshToken'),
-      storage.delete(key: 'email'),
-      storage.delete(key: 'password'),
-    ]);
-  }
 
-  Future<void> _processProfileResponse(http.Response response) async {
+
+   Future<void> _processProfileResponse(http.Response response) async {
     final jsonResponse = jsonDecode(response.body);
     
     if (jsonResponse.containsKey('data')) {
@@ -143,15 +141,22 @@ class SideMenuViewModel with ChangeNotifier {
     notifyListeners();
 
     try {
-     await logoutService.logout(token);
+          resetUserData();
+
+      await logoutService.logout(token);
       await storage.delete(key: 'email');
+      await storage.delete(key: 'accessToken');
+      await storage.delete(key: 'token');
+      await storage.delete(key: 'refreshToken');
+      await storage.delete(key: 'userId');
+
       await storage.delete(key: 'password');
-       await storage.delete(key: 'is_verified');
-       await storage.delete(key: 'role');
-       await storage.delete(key: 'genre');
-       await storage.delete(key: 'image');
-       await storage.delete(key: 'mobile');
-        await storage.delete(key: 'name');
+      await storage.delete(key: 'is_verified');
+      await storage.delete(key: 'role');
+      await storage.delete(key: 'genre');
+      await storage.delete(key: 'image');
+      await storage.delete(key: 'mobile');
+      await storage.delete(key: 'name');
         
        
       ScaffoldMessenger.of(context).showSnackBar(

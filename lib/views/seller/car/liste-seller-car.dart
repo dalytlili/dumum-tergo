@@ -16,6 +16,35 @@ class ListeSellerCar extends StatefulWidget {
 class _ListeSellerCarState extends State<ListeSellerCar> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  bool _showSearchBar = true;
+  double _lastScrollOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  void _handleScroll() {
+    final currentOffset = _scrollController.offset;
+    if (currentOffset > _lastScrollOffset && currentOffset > 50) {
+      // Scrolling down and past threshold
+      if (_showSearchBar) {
+        setState(() {
+          _showSearchBar = false;
+        });
+      }
+    } else if (currentOffset < _lastScrollOffset || currentOffset <= 50) {
+      // Scrolling up or at top
+      if (!_showSearchBar) {
+        setState(() {
+          _showSearchBar = true;
+        });
+      }
+    }
+    _lastScrollOffset = currentOffset;
+  }
 
   void _showAddCarDialog() {
     showModalBottomSheet(
@@ -37,6 +66,8 @@ class _ListeSellerCarState extends State<ListeSellerCar> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -48,17 +79,28 @@ class _ListeSellerCarState extends State<ListeSellerCar> {
     return ChangeNotifierProvider(
       create: (_) => ListeCarViewModel()..fetchCarsFromVendor(),
       child: Scaffold(
-        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
         appBar: AppBar(
           automaticallyImplyLeading: false,
-          title: const Text('Liste des voitures'),
+          title: Text(
+            'Liste des voitures',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
           centerTitle: true,
           elevation: 0,
-          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
-          foregroundColor: isDarkMode ? Colors.white : Colors.black,
+                    backgroundColor: isDarkMode ? Colors.black : Colors.white,
+
           actions: [
             IconButton(
-              icon: Icon(Icons.add, color: AppColors.primary),
+              icon: Icon(Icons.add),
               onPressed: _showAddCarDialog,
               tooltip: 'Ajouter une voiture',
             ),
@@ -68,41 +110,44 @@ class _ListeSellerCarState extends State<ListeSellerCar> {
           builder: (context, viewModel, child) {
             return Column(
               children: [
-                Container(
-                  color: isDarkMode ? Colors.grey[850] : Colors.white,
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _searchFocusNode,
-                    style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-                    decoration: InputDecoration(
-                      hintText: 'Rechercher par matricule...',
-                      hintStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey),
-                      prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.grey[400] : Colors.grey),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.clear, color: isDarkMode ? Colors.grey[400] : Colors.grey),
-                              onPressed: () {
-                                _searchController.clear();
-                                viewModel.searchByRegistrationNumber('');
-                                _searchFocusNode.unfocus();
-                              },
-                            )
-                          : null,
-                      filled: true,
-                      fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    ),
-                    onChanged: (value) {
-                      viewModel.searchByRegistrationNumber(value);
-                    },
-                  ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: _showSearchBar ? null : 0,
+                  child: _showSearchBar
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: TextField(
+                            controller: _searchController,
+                            focusNode: _searchFocusNode,
+                            decoration: InputDecoration(
+                              hintText: 'Rechercher par matricule...',
+                              prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.grey[400] : Colors.grey),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: Icon(Icons.clear, color: isDarkMode ? Colors.grey[400] : Colors.grey),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        viewModel.searchByRegistrationNumber('');
+                                        _searchFocusNode.unfocus();
+                                      },
+                                    )
+                                  : null,
+                              filled: true,
+                              fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            onChanged: (value) {
+                              viewModel.searchByRegistrationNumber(value);
+                            },
+                          ),
+                        )
+                      : null,
                 ),
-                Divider(height: 1, color: isDarkMode ? Colors.grey[700] : Colors.grey[200]),
+           
                 if (viewModel.isLoading && viewModel.searchResults.isEmpty)
                   Expanded(
                     child: Center(
@@ -152,6 +197,7 @@ class _ListeSellerCarState extends State<ListeSellerCar> {
                       },
                       color: AppColors.primary,
                       child: ListView.builder(
+                        controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         itemCount: viewModel.searchResults.length,
                         itemBuilder: (context, index) {
@@ -168,6 +214,8 @@ class _ListeSellerCarState extends State<ListeSellerCar> {
     );
   }
 
+
+
   Widget _buildCarCard(Map<String, dynamic> car, BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
@@ -181,7 +229,7 @@ class _ListeSellerCarState extends State<ListeSellerCar> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey[850] : Colors.white,
+          color: isDarkMode ? Color(0xFF1E1E1E) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(

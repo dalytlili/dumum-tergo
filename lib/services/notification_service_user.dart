@@ -261,7 +261,7 @@ _handleNewNotification(
       title = 'Réservation refusée';
       body = 'Votre réservation a été refusée';
     } else if (type == 'experience_like') {
-      title = 'Nouveau like !';
+      title = 'Nouveau j\'jaime';
       body = notification['message'] ?? 'Quelqu\'un a aimé votre expérience';
     }else if (type == 'experience_comment') {
       title = 'Nouveau commentaire !';

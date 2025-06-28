@@ -11,12 +11,12 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ExperienceDetailView extends StatefulWidget {
-  final Map<String, dynamic> experience;
+  final String experienceId;
   final Function()? onExperienceDeleted;
 
   const ExperienceDetailView({
     Key? key, 
-    required this.experience,
+    required this.experienceId,
     this.onExperienceDeleted,
   }) : super(key: key);
 
@@ -32,23 +32,68 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
   List<dynamic> _comments = [];
   final TextEditingController _commentController = TextEditingController();
   bool _isPostingComment = false;
+  Map<String, dynamic>? _experience;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _likeCount = widget.experience['likes']?.length ?? 0;
-    _comments = widget.experience['comments'] ?? [];
+    _fetchExperience();
     _getCurrentUserId();
   }
+
+  Future<void> _fetchExperience() async {
+  try {
+    final token = await storage.read(key: 'token');
+    final headers = {
+      'Accept': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+
+    final response = await http.get(
+      Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experienceId}'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        _experience = data['data'];
+        _likeCount = _experience?['likes']?.length ?? 0;
+        _comments = _experience?['comments'] ?? [];
+        
+        // Initialiser _isLiked en vérifiant si currentUserId est dans les likes
+        if (currentUserId != null && _experience?['likes'] != null) {
+          _isLiked = _experience!['likes'].contains(currentUserId);
+        } else {
+          _isLiked = false;
+        }
+        
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _errorMessage = 'Erreur lors du chargement de l\'expérience';
+        _isLoading = false;
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _errorMessage = 'Erreur de connexion: ${e.toString()}';
+      _isLoading = false;
+    });
+  }
+}
 
   Future<void> _getCurrentUserId() async {
     try {
       final token = await storage.read(key: 'token');
       if (token != null) {
         currentUserId = await _getUserIdFromToken(token);
-        if (mounted) {
+        if (mounted && _experience != null) {
           setState(() {
-            _isLiked = widget.experience['likes']?.contains(currentUserId) ?? false;
+            _isLiked = _experience!['likes']?.contains(currentUserId) ?? false;
           });
         }
       }
@@ -76,42 +121,79 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
     }
   }
 
-  Future<void> _handleLike() async {
-    try {
-      final token = await storage.read(key: 'token');
-      if (token == null || currentUserId == null) return;
+Future<void> _handleLike() async {
+  try {
+    final token = await storage.read(key: 'token');
+    if (token == null || currentUserId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Veuillez vous connecter pour aimer')),
+        );
+      }
+      return;
+    }
 
-      // Mise à jour optimiste de l'UI
-      setState(() {
-        _isLiked = !_isLiked;
-        _likeCount = _isLiked ? _likeCount + 1 : _likeCount - 1;
-      });
+    // Vérifier que l'expérience existe
+    if (_experience == null) return;
 
-      final response = await http.put(
-        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experience['_id']}/${_isLiked ? 'like' : 'unlike'}'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
+    // Mise à jour optimiste de l'UI
+    setState(() {
+      _isLiked = !_isLiked;
+      _likeCount = _isLiked ? _likeCount + 1 : _likeCount - 1;
+    });
 
-      if (response.statusCode != 200) {
-        // Annuler le changement en cas d'erreur
+    final endpoint = _isLiked ? 'like' : 'unlike';
+    final uri = Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experienceId}/$endpoint');
+
+    debugPrint('Envoi de la requête LIKE à: $uri');
+    debugPrint('Token: ${token.substring(0, 10)}...');
+
+    final response = await http.put(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    );
+
+    debugPrint('Réponse du serveur: ${response.statusCode}');
+    debugPrint('Corps de la réponse: ${response.body}');
+
+    if (response.statusCode != 200) {
+      // Annuler le changement en cas d'erreur
+      if (mounted) {
         setState(() {
           _isLiked = !_isLiked;
           _likeCount = _isLiked ? _likeCount + 1 : _likeCount - 1;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${response.body}')),
+        );
       }
-    } catch (e) {
-      debugPrint('Like error: $e');
+    } else {
+      // Rafraîchir les données après un like réussi
+      await _fetchExperience();
+    }
+  } catch (e) {
+    debugPrint('Like error: $e');
+    if (mounted) {
+      setState(() {
+        _isLiked = !_isLiked;
+        _likeCount = _isLiked ? _likeCount + 1 : _likeCount - 1;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur réseau: ${e.toString()}')),
+      );
     }
   }
+}
 
-  Future<void> _showLikesBottomSheet(String experienceId) async {
+  Future<void> _showLikesBottomSheet() async {
     try {
       final token = await storage.read(key: 'token');
       final response = await http.get(
-        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/$experienceId/like'),
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experienceId}/like'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',
@@ -145,7 +227,9 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundImage: NetworkImage(
-                              'https://res.cloudinary.com/dcs2edizr/image/upload/${user['image'] ?? 'default.jpg'}',
+                              user['image'].startsWith('https') 
+                                ? user['image']
+                                : 'https://res.cloudinary.com/dcs2edizr/image/upload/${user['image']}',
                             ),
                           ),
                           title: Text(user['name'] ?? 'Utilisateur inconnu'),
@@ -163,7 +247,7 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
       debugPrint('Error fetching likes: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des likes')),
+          const SnackBar(content: Text('Erreur lors du chargement des likes')),
         );
       }
     }
@@ -178,7 +262,7 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
       if (token == null) return;
 
       final response = await http.post(
-        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experience['_id']}/comment'),
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experienceId}/comment'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -192,6 +276,8 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
           _comments.add(newCommentData['data']['comments'].last);
           _commentController.clear();
         });
+        // Rafraîchir l'expérience complète
+        await _fetchExperience();
       }
     } catch (e) {
       debugPrint('Error posting comment: $e');
@@ -208,15 +294,15 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Confirmer la suppression'),
-          content: Text('Voulez-vous vraiment supprimer cette expérience ?'),
+          title: const Text('Confirmer la suppression'),
+          content: const Text('Voulez-vous vraiment supprimer cette expérience ?'),
           actions: <Widget>[
             TextButton(
-              child: Text('Annuler'),
+              child: const Text('Annuler'),
               onPressed: () => Navigator.of(context).pop(false),
             ),
             TextButton(
-              child: Text('Supprimer', style: TextStyle(color: Colors.red)),
+              child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
               onPressed: () => Navigator.of(context).pop(true),
             ),
           ],
@@ -237,7 +323,7 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
     try {
       final token = await storage.read(key: 'token');
       final response = await http.delete(
-        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experience['_id']}'),
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${widget.experienceId}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -247,20 +333,26 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
       if (response.statusCode == 200) {
         return true;
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la suppression')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur lors de la suppression')),
+          );
+        }
         return false;
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: ${e.toString()}')),
+        );
+      }
       return false;
     }
   }
 
   String _formatTimeAgo(dynamic date) {
+    if (date == null) return 'Date inconnue';
+    
     DateTime parsedDate;
     
     if (date is DateTime) {
@@ -284,78 +376,99 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    final experience = widget.experience;
-    final user = experience['user'] ?? {};
-    final images = experience['images'] ?? [];
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Détails de l\'expérience',
-          style: TextStyle(
-            color: AppColors.text,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: IconThemeData(color: AppColors.text),
-        actions: [
-         PopupMenuButton<String>(
-  icon: Icon(Icons.more_vert, color: AppColors.text),
-  onSelected: (value) async {
-    if (value == 'delete') {
-      _showDeleteConfirmationDialog();
-    } else if (value == 'edit') {
-      final updatedExperience = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => EditExperienceScreen(
-            experience: widget.experience,
-            onExperienceUpdated: (updatedExp) {
-              setState(() {
-                widget.experience['description'] = updatedExp['description'];
-              });
-            },
-          ),
-        ),
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
-      if (updatedExperience != null) {
-        setState(() {
-          widget.experience['description'] = updatedExperience['description'];
-        });
-      }
     }
-  },
-  itemBuilder: (BuildContext context) {
-    return [
-      if (currentUserId == widget.experience['user']?['_id']) ...[
-        PopupMenuItem<String>(
-          value: 'edit',
-          child: Row(
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.edit, color: AppColors.primary),
-              SizedBox(width: 10),
-              Text('Modifier'),
-            ],
-          ),
-        ),
-        PopupMenuItem<String>(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete, color: Colors.red),
-              SizedBox(width: 10),
-              Text(
-                'Supprimer',
-                style: TextStyle(color: Colors.red),
+              Text(_errorMessage!),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _fetchExperience,
+                child: const Text('Réessayer'),
               ),
             ],
           ),
         ),
-      ],
-    ];
-  },
-),
+      );
+    }
+
+    if (_experience == null) {
+      return const Scaffold(
+        body: Center(child: Text('Expérience non trouvée')),
+      );
+    }
+
+    final user = _experience!['user'] ?? {};
+    final images = _experience!['images'] ?? [];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Détails de l\'expérience'),
+        elevation: 0,
+        actions: [
+          if (currentUserId == user['_id'])
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) async {
+                if (value == 'delete') {
+                  _showDeleteConfirmationDialog();
+                } else if (value == 'edit') {
+                  final updatedExperience = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => EditExperienceScreen(
+                        experience: _experience!,
+                        onExperienceUpdated: (updatedExp) {
+                          setState(() {
+                            _experience!['description'] = updatedExp['description'];
+                          });
+                        },
+                      ),
+                    ),
+                  );
+                  if (updatedExperience != null) {
+                    setState(() {
+                      _experience!['description'] = updatedExperience['description'];
+                    });
+                  }
+                }
+              },
+              itemBuilder: (BuildContext context) {
+                return [
+                  PopupMenuItem<String>(
+                    value: 'edit',
+                    child: Row(
+                      children: const [
+                        Icon(Icons.edit, color: AppColors.primary),
+                        SizedBox(width: 10),
+                        Text('Modifier'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: const [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 10),
+                        Text(
+                          'Supprimer',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ];
+              },
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -370,13 +483,15 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                   CircleAvatar(
                     radius: 16,
                     backgroundImage: NetworkImage(
-                      'https://res.cloudinary.com/dcs2edizr/image/upload/${user['image'] ?? 'default.jpg'}',
+                      user['image'].startsWith('https') 
+                        ? user['image']
+                        : 'https://res.cloudinary.com/dcs2edizr/image/upload/${user['image']}',
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
                     user['name'] ?? 'Utilisateur inconnu',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -399,7 +514,7 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                       placeholder: (context, url) => Container(
                         color: Colors.grey[200],
                       ),
-                      errorWidget: (context, url, error) => Icon(Icons.error),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
                     );
                   },
                 ),
@@ -418,7 +533,7 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                     onPressed: _handleLike,
                   ),
                   IconButton(
-                    icon: Icon(Icons.comment_outlined),
+                    icon: const Icon(Icons.comment_outlined),
                     onPressed: () {},
                   ),
                 ],
@@ -429,12 +544,12 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
               child: _likeCount == 0
-                  ? SizedBox.shrink()
+                  ? const SizedBox.shrink()
                   : GestureDetector(
-                      onTap: () => _showLikesBottomSheet(widget.experience['_id']),
+                      onTap: _showLikesBottomSheet,
                       child: Text(
                         '$_likeCount j\'aime${_likeCount > 1 ? 's' : ''}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -449,17 +564,17 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: TextStyle(color: Colors.black),
+                      style: const TextStyle(color: Colors.black),
                       children: [
                         TextSpan(
                           text: '${user['name']} ',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                   ),
                   ReadMoreText(
-                    experience['description'] ?? '',
+                    _experience!['description'] ?? '',
                     trimLines: 2,
                     colorClickableText: AppColors.primary,
                     trimMode: TrimMode.Line,
@@ -474,8 +589,8 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
               child: Text(
-                _formatTimeAgo(experience['createdAt']),
-                style: TextStyle(
+                _formatTimeAgo(_experience!['createdAt']),
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 12,
                 ),
@@ -488,20 +603,20 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Commentaires',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   
                   // Liste des commentaires
                   if (_comments.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
-                      child: Text(
+                      child: const Text(
                         'Aucun commentaire pour le moment',
                         style: TextStyle(color: Colors.grey),
                       ),
@@ -509,7 +624,7 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                   else
                     ListView.builder(
                       shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
+                      physics: const NeverScrollableScrollPhysics(),
                       itemCount: _comments.length,
                       itemBuilder: (context, index) {
                         final comment = _comments[index];
@@ -518,14 +633,16 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                           leading: CircleAvatar(
                             radius: 16,
                             backgroundImage: NetworkImage(
-                              'https://res.cloudinary.com/dcs2edizr/image/upload/${commentUser['image'] ?? 'default.jpg'}',
+                              commentUser['image'].startsWith('https') 
+                                ? commentUser['image']
+                                : 'https://res.cloudinary.com/dcs2edizr/image/upload/${commentUser['image']}',
                             ),
                           ),
                           title: Text(commentUser['name'] ?? 'Utilisateur inconnu'),
                           subtitle: Text(comment['text'] ?? ''),
                           trailing: Text(
                             _formatTimeAgo(comment['createdAt']),
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         );
                       },
@@ -544,15 +661,15 @@ class _ExperienceDetailViewState extends State<ExperienceDetailView> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(24),
                               ),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                             ),
                           ),
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         _isPostingComment
-                            ? CircularProgressIndicator()
+                            ? const CircularProgressIndicator()
                             : IconButton(
-                                icon: Icon(Icons.send),
+                                icon: const Icon(Icons.send),
                                 onPressed: _postComment,
                               ),
                       ],

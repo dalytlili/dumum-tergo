@@ -1,27 +1,36 @@
-// reservation_model.dart
 class Reservation {
   final String id;
   final Car car;
   final Vendor vendor;
-  final DriverDetails driverDetails;
   final DateTime startDate;
   final DateTime endDate;
   final double totalPrice;
   final String status;
   final String paymentStatus;
   final String location;
+  final int childSeats;
+  final int additionalDrivers;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DriverDocuments documents;
+  final DriverDetails driverDetails;
 
   Reservation({
     required this.id,
     required this.car,
     required this.vendor,
-    required this.driverDetails,
     required this.startDate,
     required this.endDate,
     required this.totalPrice,
     required this.status,
     required this.paymentStatus,
     required this.location,
+    required this.childSeats,
+    required this.additionalDrivers,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.documents,
+    required this.driverDetails,
   });
 
   factory Reservation.fromJson(Map<String, dynamic> json) {
@@ -29,13 +38,18 @@ class Reservation {
       id: json['_id'],
       car: Car.fromJson(json['car']),
       vendor: Vendor.fromJson(json['vendor']),
-      driverDetails: DriverDetails.fromJson(json['driverDetails']),
       startDate: DateTime.parse(json['startDate']),
       endDate: DateTime.parse(json['endDate']),
       totalPrice: json['totalPrice'].toDouble(),
       status: json['status'],
       paymentStatus: json['paymentStatus'],
       location: json['location'],
+      childSeats: json['childSeats'],
+      additionalDrivers: json['additionalDrivers'],
+      createdAt: DateTime.parse(json['createdAt']),
+      updatedAt: DateTime.parse(json['updatedAt']),
+      documents: DriverDocuments.fromJson(json['documents']),
+      driverDetails: DriverDetails.fromJson(json['driverDetails']),
     );
   }
 }
@@ -65,49 +79,65 @@ class Car {
 
 class Vendor {
   final String id;
-  final String image;
   final String businessName;
+  final String image;
 
   Vendor({
     required this.id,
-    required this.image,
     required this.businessName,
+    required this.image,
   });
 
   factory Vendor.fromJson(Map<String, dynamic> json) {
     return Vendor(
       id: json['_id'],
-      image: json['image'],
       businessName: json['businessName'],
+      image: json['image'],
+    );
+  }
+}
+
+class DriverDocuments {
+  final String? permisRecto;
+  final String? permisVerso;
+  final String? passport;
+  final String? cinRecto;
+  final String? cinVerso;
+
+  DriverDocuments({
+    this.permisRecto,
+    this.permisVerso,
+    this.passport,
+        this.cinRecto,
+        this.cinVerso,
+
+  });
+
+  factory DriverDocuments.fromJson(Map<String, dynamic> json) {
+    return DriverDocuments(
+      permisRecto: json['permisRecto'],
+      permisVerso: json['permisVerso'],
+      passport: json['passport'],
+            cinRecto: json['cinRecto'],
+            cinVerso: json['cinVerso'],
+
     );
   }
 }
 
 class DriverDetails {
   final String email;
-  final String firstName;
-  final String lastName;
-  final DateTime birthDate;
   final String phoneNumber;
-  final String country;
 
   DriverDetails({
     required this.email,
-    required this.firstName,
-    required this.lastName,
-    required this.birthDate,
     required this.phoneNumber,
-    required this.country,
   });
 
   factory DriverDetails.fromJson(Map<String, dynamic> json) {
     return DriverDetails(
       email: json['email'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
-      birthDate: DateTime.parse(json['birthDate']),
       phoneNumber: json['phoneNumber'],
-      country: json['country'],
     );
   }
 }

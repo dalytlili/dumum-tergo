@@ -51,7 +51,6 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
       ),
     );
 
-    // Délai pour démarrer l'animation après le build
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _animationController.forward();
     });
@@ -71,6 +70,11 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
     final totalPrice = widget.reservationData['totalPrice']?.toString() ?? '0';
     final formattedPrice = NumberFormat.currency(locale: 'fr_TN', symbol: 'TND').format(double.tryParse(totalPrice));
 
+    // Facteur de réduction pour les petits écrans
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final scaleFactor = isSmallScreen ? 0.8 : 1.0;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Confirmation de réservation'),
@@ -79,7 +83,7 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
         centerTitle: true,
       ),
       body: Container(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(16.0 * scaleFactor),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -87,11 +91,12 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
             colors: [
               Theme.of(context).colorScheme.primary.withOpacity(0.05),
               Theme.of(context).colorScheme.primary.withOpacity(0.02),
-              Theme.of(context).colorScheme.background, // Adapté au dark mode
+              Theme.of(context).colorScheme.background,
             ],
           ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             ScaleTransition(
@@ -101,77 +106,86 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
                   shape: BoxShape.circle,
                   color: Colors.green.withOpacity(0.1),
                 ),
-                padding: const EdgeInsets.all(20),
-                child: const Icon(
+                padding: EdgeInsets.all(16.0 * scaleFactor),
+                child: Icon(
                   Icons.check_circle,
                   color: Colors.green,
-                  size: 80,
+                  size: 60.0 * scaleFactor,
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 8.0 * scaleFactor),
             FadeTransition(
               opacity: _fadeAnimation,
               child: Text(
                 'Réservation confirmée!',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.primary,
+                      fontSize: 18.0 * scaleFactor,
                     ),
+                textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 4.0 * scaleFactor),
             FadeTransition(
               opacity: _fadeAnimation,
               child: Text(
                 'Votre véhicule est réservé avec succès',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Theme.of(context).hintColor, // Adapté au dark mode
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).hintColor,
+                      fontSize: 14.0 * scaleFactor,
                     ),
+                textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 32),
+            SizedBox(height: 8.0 * scaleFactor),
             SlideTransition(
               position: _slideAnimation,
               child: Card(
                 elevation: 2,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12.0 * scaleFactor),
                 ),
-                color: Theme.of(context).cardColor, // Adapté au dark mode
+                color: Theme.of(context).cardColor,
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: EdgeInsets.all(12.0 * scaleFactor),
                   child: Column(
                     children: [
                       _buildDetailRow(
                         icon: Icons.confirmation_number,
                         label: 'Référence',
                         value: widget.reservationData['_id']?.toString() ?? '',
+                        scaleFactor: scaleFactor,
                       ),
-                      Divider(height: 24, color: Theme.of(context).dividerColor), // Adapté
+                      Divider(height: 16.0 * scaleFactor, color: Theme.of(context).dividerColor),
                       _buildDetailRow(
                         icon: Icons.directions_car,
                         label: 'Véhicule',
                         value: '$brand $model',
+                        scaleFactor: scaleFactor,
                       ),
-                      Divider(height: 24, color: Theme.of(context).dividerColor), // Adapté
+                      Divider(height: 16.0 * scaleFactor, color: Theme.of(context).dividerColor),
                       _buildDetailRow(
                         icon: Icons.calendar_today,
                         label: 'Période',
                         value: '${_formatDate(widget.reservationData['startDate'])} - ${_formatDate(widget.reservationData['endDate'])}',
+                        scaleFactor: scaleFactor,
                       ),
-                      Divider(height: 24, color: Theme.of(context).dividerColor), // Adapté
+                      Divider(height: 16.0 * scaleFactor, color: Theme.of(context).dividerColor),
                       _buildDetailRow(
                         icon: Icons.location_on,
                         label: 'Lieu',
                         value: widget.reservationData['location']?.toString() ?? '',
+                        scaleFactor: scaleFactor,
                       ),
-                      Divider(height: 24, color: Theme.of(context).dividerColor), // Adapté
+                      Divider(height: 16.0 * scaleFactor, color: Theme.of(context).dividerColor),
                       _buildDetailRow(
                         icon: Icons.attach_money,
                         label: 'Prix total',
                         value: formattedPrice,
                         isPrice: true,
+                        scaleFactor: scaleFactor,
                       ),
                     ],
                   ),
@@ -182,39 +196,49 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
             FadeTransition(
               opacity: _fadeAnimation,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 24.0),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushAndRemoveUntil(
-                      context,
-                      PageRouteBuilder(
-                        pageBuilder: (context, animation, secondaryAnimation) => const HomeView(),
-                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
-                        transitionDuration: const Duration(milliseconds: 500),
+                padding: EdgeInsets.only(bottom: 16.0 * scaleFactor),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        PageRouteBuilder(
+                          pageBuilder: (context, animation, secondaryAnimation) => const HomeView(),
+                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: child,
+                            );
+                          },
+                          transitionDuration: const Duration(milliseconds: 500),
+                        ),
+                        (Route<dynamic> route) => false,
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: Size(double.infinity, 40.0 * scaleFactor),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12.0 * scaleFactor),
                       ),
-                      (Route<dynamic> route) => false,
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary, // Texte contrasté
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.0 * scaleFactor,
+                        vertical: 8.0 * scaleFactor,
+                      ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  icon: Icon(Icons.home, size: 20, color: Theme.of(context).colorScheme.onPrimary),
-                  label: Text(
-                    "Retour à l'accueil",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Theme.of(context).colorScheme.onPrimary, // Texte contrasté
+                    icon: Icon(
+                      Icons.home,
+                      size: 18.0 * scaleFactor,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                    label: Text(
+                      "Retour à l'accueil",
+                      style: TextStyle(
+                        fontSize: 14.0 * scaleFactor,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
                     ),
                   ),
                 ),
@@ -231,13 +255,14 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
     required String label,
     required String value,
     bool isPrice = false,
+    required double scaleFactor,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      padding: EdgeInsets.symmetric(vertical: 6.0 * scaleFactor),
       child: Row(
         children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 16),
+          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20.0 * scaleFactor),
+          SizedBox(width: 8.0 * scaleFactor),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,15 +270,17 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
                 Text(
                   label,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).hintColor, // Texte secondaire
+                        color: Theme.of(context).hintColor,
+                        fontSize: 12.0 * scaleFactor,
                       ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 2.0 * scaleFactor),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface, // Texte principal
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontWeight: isPrice ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 14.0 * scaleFactor,
                       ),
                 ),
               ],
@@ -263,8 +290,6 @@ class _ReservationSuccessPageState extends State<ReservationSuccessPage> with Si
       ),
     );
   }
-
- 
 
   String _formatDate(dynamic date) {
     try {

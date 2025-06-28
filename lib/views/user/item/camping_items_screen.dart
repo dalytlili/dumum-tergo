@@ -86,7 +86,7 @@ class _CampingItemsScreenState extends State<CampingItemsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Theme.of(context).cardColor,
-      builder: (context) => const FilterSheet(),
+      builder: (context) => const FilterSheet1(),
     );
   }
 
@@ -116,7 +116,6 @@ Widget _buildSlidingSearchBar(BuildContext context, CampingItemsViewModel viewMo
     right: 0,
     child: Material(
       elevation: 6,
-      color: Colors.white, // Fond complètement transparent
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
@@ -242,7 +241,7 @@ Widget _buildContentList(CampingItemsViewModel viewModel) {
       // Ajustement dynamique du childAspectRatio
       final childAspectRatio = constraints.maxWidth > 400 
           ? 0.55
-          : 0.48;
+          : 0.6;
       
       return NotificationListener<ScrollNotification>(
         onNotification: (notification) => true,

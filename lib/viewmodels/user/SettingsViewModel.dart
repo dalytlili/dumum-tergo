@@ -24,33 +24,20 @@ void editProfile(BuildContext context) async {
     builder: (context) => Center(child: CircularProgressIndicator()),
   );
 
-  try {
-    await editProfileViewModel.fetchProfileData();
-    Navigator.pop(context); // Fermer le loader
+try {
+  await editProfileViewModel.fetchProfileData();
+  Navigator.pop(context); // Fermer le loader
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => ChangeNotifierProvider.value(
+        value: editProfileViewModel,
+        child: EditProfileView(),
       ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Consumer<EditProfileViewModel>(
-            builder: (context, viewModel, child) {
-              // Afficher un loader interne si nécessaire
-              return viewModel.isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : EditProfileView();
-            },
-          ),
-        );
-      },
-    );
-  } catch (error) {
+    ),
+  );
+}catch (error) {
     Navigator.pop(context); // Fermer le loader en cas d'erreur
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Erreur: ${error.toString()}")),
@@ -62,18 +49,6 @@ void editProfile(BuildContext context) async {
   void changeLanguage(BuildContext context) {
     // Naviguer vers la page de changement de langue
     //Navigator.pushNamed(context, '/changeLanguage');
-  }
-
-  // Méthode pour afficher la politique de confidentialité
-  void showPrivacyPolicy(BuildContext context) {
-    // Naviguer vers la page de politique de confidentialité
-    //Navigator.pushNamed(context, '/privacyPolicy');
-  }
-
-  // Méthode pour contacter le support
-  void contactUs(BuildContext context) {
-    // Naviguer vers la page de contact
-    //Navigator.pushNamed(context, '/contactUs');
   }
 
   // Méthode pour supprimer le compte

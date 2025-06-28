@@ -177,7 +177,11 @@ class _CampingItemDetailSellerScreenState extends State<CampingItemDetailSellerS
     final iconColor = isDarkMode ? Colors.white : Colors.black;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.item.name),
+        title: Text(widget.item.name, style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),),
                 iconTheme: IconThemeData(color: iconColor), // Applique la couleur aux icônes de l'appbar
    systemOverlayStyle: SystemUiOverlayStyle(
           statusBarIconBrightness: isDarkMode ? Brightness.light : Brightness.dark,

@@ -25,47 +25,47 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _isProcessingFollow = false;
-final AudioPlayer _audioPlayer = AudioPlayer();
-String? currentUserId;
-  bool _isBottomSheetOpen = false; // Ajoutez cette ligne
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? currentUserId;
+  bool _isBottomSheetOpen = false;
 
-@override
-void initState() {
-  super.initState();
-  _getCurrentUserId().then((_) {
-    _loadUserData();
-  });
-}
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentUserId().then((_) {
+      _loadUserData();
+    });
+  }
 
-Future<void> _getCurrentUserId() async {
-  try {
-    final token = await storage.read(key: 'token');
-    if (token != null) {
-      currentUserId = await _getUserIdFromToken(token);
+  Future<void> _getCurrentUserId() async {
+    try {
+      final token = await storage.read(key: 'token');
+      if (token != null) {
+        currentUserId = await _getUserIdFromToken(token);
+      }
+    } catch (e) {
+      debugPrint('Error getting user ID: $e');
     }
-  } catch (e) {
-    debugPrint('Error getting user ID: $e');
   }
-}
 
-Future<String?> _getUserIdFromToken(String token) async {
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
+  Future<String?> _getUserIdFromToken(String token) async {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
 
-    final payload = parts[1];
-    final normalized = base64Url.normalize(payload);
-    final decoded = utf8.decode(base64Url.decode(normalized));
-    final jsonMap = jsonDecode(decoded);
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final jsonMap = jsonDecode(decoded);
 
-    return jsonMap['user']?['_id']?.toString() ?? 
-           jsonMap['userId']?.toString() ??
-           jsonMap['id']?.toString();
-  } catch (e) {
-    debugPrint('Token decoding error: $e');
-    return null;
+      return jsonMap['user']?['_id']?.toString() ?? 
+             jsonMap['userId']?.toString() ??
+             jsonMap['id']?.toString();
+    } catch (e) {
+      debugPrint('Token decoding error: $e');
+      return null;
+    }
   }
-}
 
   Future<void> _loadUserData() async {
     setState(() {
@@ -86,70 +86,69 @@ Future<String?> _getUserIdFromToken(String token) async {
       });
     }
   }
-Future<void> _playSound(String sound) async {
-  try {
-    await _audioPlayer.play(AssetSource('sounds/$sound.mp3')); // Assurez-vous d'avoir ces fichiers dans vos assets
-  } catch (e) {
-    debugPrint('Error playing sound: $e');
+
+  Future<void> _playSound(String sound) async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/$sound.mp3'));
+    } catch (e) {
+      debugPrint('Error playing sound: $e');
+    }
   }
-}
-Future<void> _handleLike(Experience experience) async {
-  try {
-    if (currentUserId == null) {
-      await _getCurrentUserId();
+
+  Future<void> _handleLike(Experience experience) async {
+    try {
       if (currentUserId == null) {
-        debugPrint('No user ID available');
+        await _getCurrentUserId();
+        if (currentUserId == null) {
+          debugPrint('No user ID available');
+          return;
+        }
+      }
+
+      final token = await storage.read(key: 'token');
+      if (token == null) {
+        debugPrint('No token available');
         return;
       }
-    }
 
-    final token = await storage.read(key: 'token');
-    if (token == null) {
-      debugPrint('No token available');
-      return;
-    }
-
-    // Handle both cases where like might be a String (userId) or a Map (user object)
-    final wasLiked = experience.likes.any((like) => 
-        (like is String && like == currentUserId) || 
-        (like is Map && like['_id'] == currentUserId));
-    
-    // Mise à jour optimiste de l'UI
-    setState(() {
-      if (wasLiked) {
-        experience.likes.removeWhere((like) => 
-            (like is String && like == currentUserId) || 
-            (like is Map && like['_id'] == currentUserId));
-      } else {
-        experience.likes.add(currentUserId!);
-      }
-    });
-
-    final response = await http.put(
-      Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${experience.id}/${wasLiked ? 'unlike' : 'like'}'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
-    );
-
-    if (response.statusCode != 200) {
-      // Annuler le changement en cas d'erreur
+      final wasLiked = experience.likes.any((like) => 
+          (like is String && like == currentUserId) || 
+          (like is Map && like['_id'] == currentUserId));
+      
       setState(() {
         if (wasLiked) {
-          experience.likes.add(currentUserId!);
-        } else {
           experience.likes.removeWhere((like) => 
               (like is String && like == currentUserId) || 
               (like is Map && like['_id'] == currentUserId));
+        } else {
+          experience.likes.add(currentUserId!);
         }
       });
-      debugPrint('Like API error: ${response.statusCode} - ${response.body}');
+
+      final response = await http.put(
+        Uri.parse('https://dumum-tergo-backend.onrender.com/api/experiences/${experience.id}/${wasLiked ? 'unlike' : 'like'}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        setState(() {
+          if (wasLiked) {
+            experience.likes.add(currentUserId!);
+          } else {
+            experience.likes.removeWhere((like) => 
+                (like is String && like == currentUserId) || 
+                (like is Map && like['_id'] == currentUserId));
+          }
+        });
+        debugPrint('Like API error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Like error: $e');
     }
-  } catch (e) {
-    debugPrint('Like error: $e');
   }
-}
 
 Future<void> _showCommentsBottomSheet(String experienceId, List<dynamic> comments) async {
   if (_isBottomSheetOpen) return; // Empêche l'ouverture multiple
@@ -406,6 +405,7 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
     }
   }
 }
+
   Future<Map<String, dynamic>> _fetchUserData() async {
     final token = await storage.read(key: 'token');
     final response = await http.get(
@@ -503,6 +503,11 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
   }
 
   Widget _buildProfileHeader(Map<String, dynamic> userData) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final secondaryTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
+
     return Column(
       children: [
         Padding(
@@ -510,21 +515,19 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Photo de profil à gauche
               Container(
                 margin: const EdgeInsets.only(right: 20),
                 child: CircleAvatar(
                   radius: 50,
-                  backgroundColor: Colors.grey[200],
+                  backgroundColor: isDarkMode ? Colors.grey[800] : Colors.grey[200],
                   backgroundImage: NetworkImage(
-                                                              userData['image'].startsWith('https') 
-? userData['image']
- :                   'https://res.cloudinary.com/dcs2edizr/image/upload/${userData['image']}',
+                    userData['image'].startsWith('https') 
+                      ? userData['image']
+                      : 'https://res.cloudinary.com/dcs2edizr/image/upload/${userData['image']}',
                   ),
                 ),
               ),
               
-              // Informations utilisateur à droite
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -534,138 +537,125 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                         Expanded(
                           child: Text(
                             userData['name'],
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
+                              color: textColor,
                             ),
                           ),
                         ),
-                        // Bouton Suivre avec animation
-                       AnimatedContainer(
-  duration: const Duration(milliseconds: 400),
-  curve: Curves.easeInOutQuart,
-  transform: Matrix4.identity()..scale(_isProcessingFollow ? 0.95 : 1.0),
-  decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(24),
-    boxShadow: [
-      if (!userData['isFollowing'] && !_isProcessingFollow)
-        BoxShadow(
-          color: AppColors.primary.withOpacity(0.4),
-          blurRadius: 8,
-          spreadRadius: 0,
-          offset: const Offset(0, 4),
-        ),
-    ],
-  ),
-  child: ElevatedButton(
-    onPressed: _isProcessingFollow 
-        ? null 
-        : () async {
-            HapticFeedback.lightImpact(); // Feedback haptique
-            await _playSound(userData['isFollowing'] ? 'notification' : 'notification');
-            _toggleFollowStatus(userData);
-          },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: userData['isFollowing'] 
-          ? Colors.grey[100] 
-          : AppColors.primary,
-      foregroundColor: userData['isFollowing'] 
-          ? Colors.grey[800] 
-          : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: userData['isFollowing'] 
-            ? BorderSide(color: Colors.grey[300]!, width: 1) 
-            : BorderSide.none,
-      ),
-      elevation: 0,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 12,
-      ),
-      animationDuration: const Duration(milliseconds: 300),
-      enableFeedback: true,
-    ),
-    child: AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCirc,
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return ScaleTransition(
-          scale: animation,
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
-        );
-      },
-      child: _isProcessingFollow
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-                backgroundColor: Colors.white24,
-              ),
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (userData['isFollowing'])
-                  Icon(
-                    Icons.check_circle_outline,
-                    size: 18,
-                    color: Colors.grey[600],
-                  ),
-                if (userData['isFollowing'])
-                  const SizedBox(width: 6),
-                Text(
-                  userData['isFollowing'] ? 'Abonné' : 'Suivre',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                    shadows: userData['isFollowing'] 
-                        ? null 
-                        : [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeInOutQuart,
+                          transform: Matrix4.identity()..scale(_isProcessingFollow ? 0.95 : 1.0),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              if (!userData['isFollowing'] && !_isProcessingFollow)
+                                BoxShadow(
+                                  color: AppColors.primary.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  spreadRadius: 0,
+                                  offset: const Offset(0, 4),
+                                ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isProcessingFollow 
+                                ? null 
+                                : () async {
+                                    HapticFeedback.lightImpact();
+                                    await _playSound(userData['isFollowing'] ? 'notification' : 'notification');
+                                    _toggleFollowStatus(userData);
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: userData['isFollowing'] 
+                                  ? isDarkMode ? Colors.grey[800] : Colors.grey[100]
+                                  : AppColors.primary,
+                              foregroundColor: userData['isFollowing'] 
+                                  ? isDarkMode ? Colors.white : Colors.grey[800]
+                                  : Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(24),
+                                side: userData['isFollowing'] 
+                                    ? BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!, width: 1) 
+                                    : BorderSide.none,
+                              ),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              animationDuration: const Duration(milliseconds: 300),
+                              enableFeedback: true,
                             ),
-                          ],
-                  ),
-                ),
-              ],
-            ),
-    ),
-  ),
-),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 400),
+                              switchInCurve: Curves.easeOutBack,
+                              switchOutCurve: Curves.easeInCirc,
+                              transitionBuilder: (Widget child, Animation<double> animation) {
+                                return ScaleTransition(
+                                  scale: animation,
+                                  child: FadeTransition(
+                                    opacity: animation,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: _isProcessingFollow
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                        backgroundColor: Colors.white24,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (userData['isFollowing'])
+                                          Icon(
+                                            Icons.check_circle_outline,
+                                            size: 18,
+                                            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                                          ),
+                                        if (userData['isFollowing'])
+                                          const SizedBox(width: 6),
+                                        Text(
+                                          userData['isFollowing'] ? 'Abonné' : 'Suivre',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.2,
+                                            shadows: userData['isFollowing'] 
+                                                ? null 
+                                                : [
+                                                    Shadow(
+                                                      color: Colors.black.withOpacity(0.1),
+                                                      blurRadius: 2,
+                                                      offset: const Offset(0, 1),
+                                                    ),
+                                                  ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     
-                //    if (userData['mobile'] != null)
-                     //Padding(
-                      //  padding: const EdgeInsets.only(top: 4.0),
-                      ///  child: Text(
-                       //   userData['mobile'],
-                        //  style: TextStyle(
-                         //   color: Colors.grey[600],
-                          //  fontSize: 16,
-                         /// ),
-                       //),
-                     // ),
-                    
                     const SizedBox(height: 16),
                     
-                    // Statistiques en ligne
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildStatItem('Expériences', userData['experienceCount'].toString()),
-                        _buildStatItem('Abonnés', userData['followersCount'].toString()),
-                        _buildStatItem('Abonnements', userData['followingCount'].toString()),
+                        _buildStatItem('Expériences', userData['experienceCount'].toString(), theme),
+                        _buildStatItem('Abonnés', userData['followersCount'].toString(), theme),
+                        _buildStatItem('Abonnements', userData['followingCount'].toString(), theme),
                       ],
                     ),
                   ],
@@ -674,25 +664,28 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
             ],
           ),
         ),
-        const Divider(height: 1),
+        Divider(height: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[200]),
       ],
     );
   }
 
-  Widget _buildStatItem(String label, String value) {
+  Widget _buildStatItem(String label, String value, ThemeData theme) {
+    final isDarkMode = theme.brightness == Brightness.dark;
+    
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4.4, vertical: 6),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: Colors.grey[100],
+        color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
       ),
       child: Column(
         children: [
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
+              color: theme.textTheme.titleMedium?.color,
             ),
           ),
           const SizedBox(height: 2),
@@ -700,7 +693,7 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: theme.textTheme.bodySmall?.color,
             ),
           ),
         ],
@@ -708,232 +701,261 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
     );
   }
 
- Widget _buildExperienceItem(Experience experience) {
-  
+  Widget _buildExperienceItem(Experience experience) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+    final secondaryTextColor = isDarkMode ? Colors.grey[400] : Colors.grey[600];
 
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      color: theme.cardTheme.color,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundImage: NetworkImage(
-                'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.user.image ?? 'default.jpg'}',
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () {
-                if (currentUserId != null && currentUserId != experience.user.id) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => UserProfileScreen(userId: experience.user.id),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundImage: NetworkImage(
+                      experience.user.image.startsWith('https') 
+                        ? experience.user.image
+                        : 'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.user.image}',
                     ),
-                  );
-                }
-              },
-              child: Text(
-                experience.user.name,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      if (currentUserId != null && currentUserId != experience.user.id) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UserProfileScreen(userId: experience.user.id),
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      experience.user.name,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _formatTimeAgo(experience.createdAt),
+                    style: TextStyle(
+                      color: secondaryTextColor,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            if (experience.images.isNotEmpty)
+              SizedBox(
+                height: 300,
+                child: PageView.builder(
+                  itemCount: experience.images.length,
+                  itemBuilder: (context, index) {
+                    return CachedNetworkImage(
+                      imageUrl: experience.images[index].url,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                      ),
+                      errorWidget: (context, url, error) => Icon(Icons.error, color: secondaryTextColor),
+                    );
+                  },
                 ),
               ),
-            ),
-            const Spacer(),
-            Text(
-              _formatTimeAgo(experience.createdAt),
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 12,
+            
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      experience.isLikedByUser(currentUserId ?? '') 
+                        ? Icons.favorite 
+                        : Icons.favorite_border,
+                      color: experience.isLikedByUser(currentUserId ?? '') 
+                        ? Colors.red 
+                        : secondaryTextColor,
+                    ),
+                    onPressed: () => _handleLike(experience),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.comment_outlined, color: secondaryTextColor),
+                    onPressed: () {
+                      if (!_isBottomSheetOpen) {
+                        _showCommentsBottomSheet(experience.id, experience.comments);
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-      
-      if (experience.images.isNotEmpty)
-        SizedBox(
-          height: 300,
-          child: PageView.builder(
-            itemCount: experience.images.length,
-            itemBuilder: (context, index) {
-              return CachedNetworkImage(
-                imageUrl: experience.images[index].url,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[200],
-                ),
-                errorWidget: (context, url, error) => const Icon(Icons.error),
-              );
-            },
-          ),
-        ),
-      
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-        child: Row(
-          children: [
-            IconButton(
-              icon: Icon(
-                experience.isLikedByUser(currentUserId ?? '') 
-                  ? Icons.favorite 
-                  : Icons.favorite_border,
-                color: experience.isLikedByUser(currentUserId ?? '') 
-                  ? Colors.red 
-                  : null,
-              ),
-              onPressed: () => _handleLike(experience),
-            ),
-            IconButton(
-  icon: const Icon(Icons.comment_outlined),
-  onPressed: () {
-    if (!_isBottomSheetOpen) {
-      _showCommentsBottomSheet(experience.id, experience.comments);
-    }
-  },
-),
-           
-          ],
-        ),
-      ),
-      
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-        child: experience.likes.isEmpty
-            ? const SizedBox.shrink()
-            : GestureDetector(
-  onTap: () {
-    if (!_isBottomSheetOpen) {
-      _showLikesBottomSheet(experience.id);
-    }
-  },
-  child: RichText(
-                  text: TextSpan(
-                   // style: DefaultTextStyle.of(context).style,
-                    children: [
-                      TextSpan(
-                        text: '${experience.likes.length} ',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+            
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              child: experience.likes.isEmpty
+                  ? const SizedBox.shrink()
+                  : GestureDetector(
+                      onTap: () {
+                        if (!_isBottomSheetOpen) {
+                          _showLikesBottomSheet(experience.id);
+                        }
+                      },
+                      child: RichText(
+                        text: TextSpan(
+                          style: TextStyle(color: textColor),
+                          children: [
+                            TextSpan(
+                              text: '${experience.likes.length} ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            TextSpan(
+                              text: experience.likes.length == 1 ? 'j\'aime' : 'j\'aimes',
+                            ),
+                          ],
                         ),
                       ),
-                      TextSpan(
-                        text: experience.likes.length == 1 ? 'j\'aime' : 'j\'aimes',
-                        style: const TextStyle(
-                          color: Colors.black,
+                    ),
+            ),
+            
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      style: TextStyle(color: textColor),
+                      children: [
+                        TextSpan(
+                          text: '${experience.user.name} ',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
+                      ],
+                    ),
+                  ),
+                  ReadMoreText(
+                    experience.description,
+                    trimLines: 2,
+                    colorClickableText: theme.primaryColor,
+                    trimMode: TrimMode.Line,
+                    trimCollapsedText: '... Voir plus',
+                    trimExpandedText: ' Voir moins',
+                    style: TextStyle(color: textColor),
+                  ),
+                ],
+              ),
+            ),
+            
+            if (experience.comments.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+                child: GestureDetector(
+                  onTap: () {
+                    if (!_isBottomSheetOpen) {
+                      _showCommentsBottomSheet(experience.id, experience.comments);
+                    }
+                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dernier commentaire',
+                        style: TextStyle(
+                          color: secondaryTextColor,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundImage: NetworkImage(
+                              experience.comments.last['user']['image'].startsWith('https') 
+                                ? experience.comments.last['user']['image']
+                                : 'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.comments.last['user']['image']}',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  experience.comments.last['user']['name'],
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: textColor,
+                                  ),
+                                ),
+                                Text(
+                                  experience.comments.last['text'],
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: textColor,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
-      ),
-      
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(color: Colors.black),
-                children: [
-                  TextSpan(
-                    text: '${experience.user.name} ',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+              child: Text(
+                _formatTimeAgo(experience.createdAt),
+                style: TextStyle(
+                  color: secondaryTextColor,
+                  fontSize: 12,
+                ),
               ),
-            ),
-            ReadMoreText(
-              experience.description,
-              trimLines: 2,
-              colorClickableText: AppColors.primary,
-              trimMode: TrimMode.Line,
-              trimCollapsedText: '... Voir plus',
-              trimExpandedText: ' Voir moins',
-              style: const TextStyle(color: Colors.black),
             ),
           ],
         ),
       ),
-      
-      if (experience.comments.isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
-          child: GestureDetector(
-  onTap: () {
-    if (!_isBottomSheetOpen) {
-      _showCommentsBottomSheet(experience.id, experience.comments);
-    }
-  },
-  child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dernier commentaire',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundImage: NetworkImage(
-                          experience.comments.last['user']['image'].startsWith('https') 
-                                            ? experience.comments.last['user']['image'] 
-                        :'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.comments.last['user']['image']}',
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            experience.comments.last['user']['name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            experience.comments.last['text'],
-                            style: const TextStyle(fontSize: 14),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
- const Divider(),
-    ],
-  );
-}
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil'),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        foregroundColor: theme.appBarTheme.foregroundColor,
       ),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _hasError
@@ -941,7 +963,10 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Erreur de chargement'),
+                      Text(
+                        'Erreur de chargement',
+                        style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+                      ),
                       TextButton(
                         onPressed: _loadUserData,
                         child: const Text('Réessayer'),
@@ -958,9 +983,9 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                           future: _userData,
                           builder: (context, snapshot) {
                             if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const SizedBox(
+                              return SizedBox(
                                 height: 300,
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(child: CircularProgressIndicator(color: theme.primaryColor)),
                               );
                             } else if (snapshot.hasError) {
                               return SizedBox(
@@ -969,13 +994,19 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                                   child: Text(
                                     'Erreur: ${snapshot.error}',
                                     textAlign: TextAlign.center,
+                                    style: TextStyle(color: theme.textTheme.bodyMedium?.color),
                                   ),
                                 ),
                               );
                             } else if (!snapshot.hasData) {
-                              return const SizedBox(
+                              return SizedBox(
                                 height: 300,
-                                child: Center(child: Text('Aucune donnée disponible')),
+                                child: Center(
+                                  child: Text(
+                                    'Aucune donnée disponible',
+                                    style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+                                  ),
+                                ),
                               );
                             } else {
                               return _buildProfileHeader(snapshot.data!);
@@ -993,7 +1024,7 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.grey[800],
+                                color: theme.textTheme.titleLarge?.color,
                               ),
                             ),
                           ),
@@ -1003,8 +1034,8 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                         future: _userExperiences,
                         builder: (context, snapshot) {
                           if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const SliverFillRemaining(
-                              child: Center(child: CircularProgressIndicator()),
+                            return SliverFillRemaining(
+                              child: Center(child: CircularProgressIndicator(color: theme.primaryColor)),
                             );
                           } else if (snapshot.hasError) {
                             return SliverFillRemaining(
@@ -1012,7 +1043,10 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text('Erreur: ${snapshot.error}'),
+                                    Text(
+                                      'Erreur: ${snapshot.error}',
+                                      style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+                                    ),
                                     TextButton(
                                       onPressed: _loadUserData,
                                       child: const Text('Réessayer'),
@@ -1026,9 +1060,7 @@ Future<void> _showLikesBottomSheet(String experienceId) async {
                               child: Center(
                                 child: Text(
                                   'Aucune expérience partagée',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                  ),
+                                  style: TextStyle(color: theme.textTheme.bodySmall?.color),
                                 ),
                               ),
                             );

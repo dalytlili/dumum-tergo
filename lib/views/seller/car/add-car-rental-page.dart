@@ -30,7 +30,8 @@ class _AddCarRentalPageState extends State<AddCarRentalPage> {
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _depositController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  bool _isExpanded = false;
+  final TextEditingController _mileageLimitController = TextEditingController();
+
   bool isLoadingMakes = false;
   bool isLoadingModels = false;
 bool isSubmitting = false;
@@ -165,7 +166,7 @@ bool isSubmitting = false;
     }
   }
 
-  Future<void> _submitForm() async {
+Future<void> _submitForm() async {
     if (_vehicleImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Veuillez ajouter au moins une image')),
@@ -194,8 +195,10 @@ bool isSubmitting = false;
         'seats': _seatsController.text,
         'pricePerDay': _pricePerDayController.text,
         'transmission': selectedTransmission ?? 'manuelle',
-        'mileagePolicy': selectedMileagePolicy ?? 'illimitée',
-        'location': _locationController.text,
+  'mileagePolicy': selectedMileagePolicy ?? 'illimitée',
+  if (selectedMileagePolicy == 'limitée') 
+    'mileageLimit': _mileageLimitController.text,
+            'location': _locationController.text,
         'deposit': _depositController.text,
         'description': _descriptionController.text,
         'features': jsonEncode(selectedFeatures),
@@ -248,6 +251,11 @@ bool isSubmitting = false;
           const SnackBar(content: Text('Voiture créée avec succès!')),
         );
         Navigator.of(context).pop(true);
+      } else if (response.statusCode == 403) {
+        // Ajout spécifique pour gérer l'erreur 403
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Votre abonnement n\'est pas actif. Veuillez souscrire à un abonnement !')),
+        );
       } else {
         final error = jsonDecode(responseBody);
         throw Exception(error['message'] ?? 'Erreur inconnue du serveur');
@@ -261,7 +269,7 @@ bool isSubmitting = false;
         SnackBar(content: Text('Erreur: ${e.toString()}')),
       );
       debugPrint('Erreur complète: $e');
-    }finally {
+    } finally {
       if (mounted) {
         setState(() {
           isSubmitting = false; // Désactiver l'indicateur de chargement
@@ -270,25 +278,6 @@ bool isSubmitting = false;
     }
   }
 
-  void _resetForm() {
-    _brandController.clear();
-    _modelController.clear();
-    _yearController.clear();
-    _registrationNumberController.clear();
-    _colorController.clear();
-    _seatsController.clear();
-    _pricePerDayController.clear();
-    _locationController.clear();
-    _depositController.clear();
-    _descriptionController.clear();
-    setState(() {
-      _vehicleImages.clear();
-      selectedYear = null;
-      selectedMakeId = null;
-      selectedModel = null;
-      selectedFeatures.clear();
-    });
-  }
 
   Widget _buildStepIndicator() {
     final theme = Theme.of(context);
@@ -587,21 +576,35 @@ bool isSubmitting = false;
           ),
           SizedBox(height: 20),
           DropdownButtonFormField<String>(
-            decoration: _buildInputDecoration('Politique de Kilométrage*'),
-            dropdownColor: isDarkMode ? Colors.grey[800] : Colors.white,
-            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-            value: selectedMileagePolicy,
-            items: [
-              DropdownMenuItem(value: 'limitée', child: Text('Limitée')),
-              DropdownMenuItem(value: 'illimitée', child: Text('Illimitée')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                selectedMileagePolicy = value;
-              });
-            },
-            validator: (value) => value == null ? 'Veuillez sélectionner une politique de kilométrage' : null,
-          ),
+  decoration: _buildInputDecoration('Politique de Kilométrage*'),
+  dropdownColor: isDarkMode ? Colors.grey[800] : Colors.white,
+  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+  value: selectedMileagePolicy,
+  items: [
+    DropdownMenuItem(value: 'limitée', child: Text('Limitée')),
+    DropdownMenuItem(value: 'illimitée', child: Text('Illimitée')),
+  ],
+  onChanged: (value) {
+    setState(() {
+      selectedMileagePolicy = value;
+    });
+  },
+  validator: (value) => value == null ? 'Veuillez sélectionner une politique de kilométrage' : null,
+),
+SizedBox(height: 20),
+if (selectedMileagePolicy == 'limitée')
+  TextFormField(
+    controller: _mileageLimitController,
+    style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+    keyboardType: TextInputType.number,
+    decoration: _buildInputDecoration('Limite de kilométrage (km)*'),
+    validator: (value) {
+      if (selectedMileagePolicy == 'limitée' && (value == null || value.isEmpty)) {
+        return 'Veuillez entrer une limite de kilométrage';
+      }
+      return null;
+    },
+  ),
           SizedBox(height: 24),
           _buildSectionTitle('Caractéristiques'),
           Wrap(
@@ -846,7 +849,6 @@ bool isSubmitting = false;
     final isDarkMode = theme.brightness == Brightness.dark;
     
     return Scaffold(
-      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.grey[100],
       appBar: AppBar(
         elevation: 0,
         backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,

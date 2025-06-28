@@ -423,8 +423,10 @@ void _showAllParticipants() {
                     leading: CircleAvatar(
                       backgroundImage: participant['image'] != null
                           ? NetworkImage(
-                              'https://res.cloudinary.com/dcs2edizr/image/upload/${participant['image']}',
-                            )
+                                       participant['image'].startsWith('https') 
+                                          ? participant['image']
+                                          : 'https://res.cloudinary.com/dcs2edizr/image/upload/${participant['image']}',
+                                      )
                           : null,
                       child: participant['image'] == null
                           ? Text(
@@ -1168,9 +1170,11 @@ color: Theme.of(context).brightness == Brightness.dark
                                           backgroundColor: Colors.grey[200],
                                           backgroundImage:
                                               participant['image'] != null
-                                                  ? NetworkImage(
-                                                      'https://res.cloudinary.com/dcs2edizr/image/upload/${participant['image']}',
-                                                    ) as ImageProvider
+                                                  ?  NetworkImage(
+                                       participant['image'].startsWith('https') 
+                                          ? participant['image']
+                                          : 'https://res.cloudinary.com/dcs2edizr/image/upload/${participant['image']}',
+                                      ) as ImageProvider
                                                   : null,
                                           child: participant['image'] == null
                                               ? Text(

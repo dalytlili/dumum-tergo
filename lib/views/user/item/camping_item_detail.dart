@@ -199,68 +199,64 @@ class _CampingItemDetailScreenState extends State<CampingItemDetailScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              widget.item.name,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: onSurfaceColor,
-                              ),
-                            ),
-                          ),
-                      
-                              Positioned(
-  top: 2,
-  left: 8,
-  child: Row(
-                    spacing: 4,
-                    children: [
-                      if (widget.item.isForSale)
-                        _buildBadge(
-                          context,
-                          'À vendre',
-                          Icons.sell,
-                          Colors.blue,
-                        ),
-                      if (widget.item.isForRent)
-                        _buildBadge(
-                          context,
-                          'À louer',
-                          Icons.calendar_today,
-                          Colors.green,
-                        ),
-                    ],
-                  ),
-                ),
-                        ],
-                      ),
+                  Row(
+  children: [
+    Expanded(
+      child: Text(
+        widget.item.name,
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          color: onSurfaceColor,
+        ),
+      ),
+    ),
+    Row(
+      children: [
+        if (widget.item.isForSale)
+          _buildBadge(
+            context,
+            'À vendre',
+            Icons.sell,
+            Colors.blue,
+          ),
+        if (widget.item.isForRent)
+          _buildBadge(
+            context,
+            'À louer',
+            Icons.calendar_today,
+            Colors.green,
+          ),
+      ],
+    ),
+  ],
+),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Text(
-                            '${widget.item.price.toStringAsFixed(2)} TND',
-                            style: TextStyle(
-                              fontSize: 24,
-                              color: secondaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          if (widget.item.isForRent)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 12),
-                              child: Text(
-                                '${widget.item.rentalPrice.toStringAsFixed(2)} TND/jour',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
+                    // Dans la méthode build, remplacez la section des prix par ceci :
+Row(
+  children: [
+    if (widget.item.isForSale)
+      Text(
+        '${widget.item.price.toStringAsFixed(2)} TND',
+        style: TextStyle(
+          fontSize: 24,
+          color: secondaryColor,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    if (widget.item.isForRent)
+      Padding(
+        padding: EdgeInsets.only(left: widget.item.isForSale ? 12 : 0),
+        child: Text(
+          '${widget.item.rentalPrice.toStringAsFixed(2)} TND/jour',
+          style: TextStyle(
+            fontSize: 18,
+            color: Colors.green,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+  ],
+),
                       if (widget.item.condition != null && widget.item.condition!.trim().isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Container(
@@ -756,17 +752,7 @@ Widget _buildVendorRatingSection() {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.chat, size: 18),
-              label: const Text('Message'),
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+         
             ElevatedButton.icon(
               icon: const Icon(Icons.store, size: 18),
               label: const Text('Voir la boutique'),

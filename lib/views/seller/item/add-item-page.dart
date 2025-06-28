@@ -90,7 +90,6 @@ class _AddCampingItemPageState extends State<AddCampingItemPage> {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
       appBar: AppBar(
         title: Text(_isEditing ? 'Modifier l\'article' : 'Ajouter un article de camping'),
         backgroundColor: isDarkMode ? Colors.grey[850] : Colors.grey[100],
@@ -559,30 +558,30 @@ class _AddCampingItemPageState extends State<AddCampingItemPage> {
       setState(() => _currentStep -= 1);
     }
   }
+Future<void> _submitForm() async {
+  if (!_validateStep1() || !_validateStep2() || !_validateStep3()) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Veuillez vérifier toutes les informations')),
+    );
+    return;
+  }
 
-  Future<void> _submitForm() async {
-    if (!_validateStep1() || !_validateStep2() || !_validateStep3()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Veuillez vérifier toutes les informations')),
-      );
-      return;
-    }
+  setState(() {
+    _isLoading = true;
+  });
 
+  final token = await storage.read(key: 'seller_token');
+  if (token == null) {
     setState(() {
-      _isLoading = true;
+      _isLoading = false;
     });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Session expirée, veuillez vous reconnecter')),
+    );
+    return;
+  }
 
-    final token = await storage.read(key: 'seller_token');
-    if (token == null) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Session expirée, veuillez vous reconnecter')),
-      );
-      return;
-    }
-
+  try {
     final url = _isEditing 
         ? 'https://dumum-tergo-backend.onrender.com/api/camping/items/${widget.itemToEdit!.id}'
         : 'https://dumum-tergo-backend.onrender.com/api/camping/items';
@@ -625,59 +624,74 @@ class _AddCampingItemPageState extends State<AddCampingItemPage> {
       ));
     }
 
-    try {
-      final response = await request.send();
-      final responseBody = await response.stream.bytesToString();
+    final response = await request.send();
+    final responseBody = await response.stream.bytesToString();
 
-      setState(() {
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = false;
+    });
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isEditing 
-              ? 'Article modifié avec succès!'
-              : 'Article publié avec succès!')),
-        );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isEditing 
+            ? 'Article modifié avec succès!'
+            : 'Article publié avec succès!')),
+      );
+      
+      Navigator.of(context).pop();
+      if (widget.onItemAdded != null) {
+        widget.onItemAdded!();
+      }
+    } else {
+      // Gestion améliorée des erreurs
+      try {
+        final errorData = jsonDecode(responseBody);
+        final errorMessage = errorData['error'] ?? 
+                           errorData['message'] ??
+                           'Erreur lors de la publication (code ${response.statusCode})';
         
-        Navigator.of(context).pop();
-        if (widget.onItemAdded != null) {
-          widget.onItemAdded!();
-        }
-      } else {
-        final error = jsonDecode(responseBody);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error['message'] ?? 'Erreur lors de la publication')),
+          SnackBar(
+            content: Text(errorMessage),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur technique (code ${response.statusCode})'),
+          ),
         );
       }
-    } on SocketException {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Pas de connexion internet')),
-      );
-    } on HttpException {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de serveur')),
-      );
-    } on FormatException {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de format de données')),
-      );
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur inattendue: ${e.toString()}')),
-      );
     }
+  } on SocketException {
+    setState(() {
+      _isLoading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pas de connexion internet')),
+    );
+  } on http.ClientException catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur de connexion: ${e.message}')),
+    );
+  } on FormatException {
+    setState(() {
+      _isLoading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Erreur de format de données')),
+    );
+  } catch (e) {
+    setState(() {
+      _isLoading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Erreur inattendue: ${e.toString()}')),
+    );
   }
+}
 }

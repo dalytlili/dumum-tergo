@@ -143,7 +143,6 @@ class _CarDetailPageState extends State<CarDetailPage> {
         children: [
           Icon(
             icon,
-            color: color ?? theme.colorScheme.secondary,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -247,9 +246,7 @@ class _CarDetailPageState extends State<CarDetailPage> {
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: theme.brightness == Brightness.dark 
-            ? Colors.grey[900] 
-            : Colors.white,
+      
         iconTheme: IconThemeData(
           color: theme.brightness == Brightness.dark ? Colors.white : Colors.black,
         ),
@@ -314,7 +311,6 @@ class _CarDetailPageState extends State<CarDetailPage> {
               ),
             const SizedBox(height: 20),
             Card(
-              color: theme.cardColor,
               elevation: 4,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -331,7 +327,6 @@ class _CarDetailPageState extends State<CarDetailPage> {
                           "${widget.car['pricePerDay']} TND/jour",
                           style: TextStyle(
                             fontSize: 22,
-                            color: theme.colorScheme.secondary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -395,11 +390,11 @@ class _CarDetailPageState extends State<CarDetailPage> {
                     runSpacing: 8,
                     children: (widget.car['features'] as List).map<Widget>((feature) {
                       return Chip(
+
                         label: Text(
                           feature,
-                          style: TextStyle(color: theme.colorScheme.onSecondary),
+
                         ),
-                        backgroundColor: theme.colorScheme.secondary,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),

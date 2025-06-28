@@ -2,7 +2,7 @@ import 'package:dumum_tergo/constants/colors.dart';
 import 'package:dumum_tergo/viewmodels/seller/CampingItemSEllerViewModel.dart';
 import 'package:dumum_tergo/views/seller/item/add-item-page.dart';
 import 'package:dumum_tergo/views/seller/item/camping_item_card_seller.dart';
-import 'package:dumum_tergo/views/user/item/filter_sheet.dart';
+import 'package:dumum_tergo/views/seller/item/filter_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -82,14 +82,16 @@ class _CampingItemsScreenSellerState extends State<CampingItemsScreenSeller> {
     Provider.of<CampingItemsSellerViewModel>(context, listen: false)
         .applyFilters(searchTerm: _searchController.text);
   }
-
-  void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => const FilterSheet(),
-    );
-  }
+void _showFilterSheet() {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => ChangeNotifierProvider.value(
+      value: Provider.of<CampingItemsSellerViewModel>(context, listen: false),
+      child: const FilterSheet(),
+    ),
+  );
+}
 
   void _showAddCarDialog() {
     showModalBottomSheet(
@@ -122,22 +124,24 @@ class _CampingItemsScreenSellerState extends State<CampingItemsScreenSeller> {
       builder: (context, viewModel, child) {
         return Scaffold(
           appBar: AppBar(
-            title: const Text('Mes annonces'),
-            backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-        foregroundColor: isDarkMode ? Colors.white : Colors.black,
+            title:  Text('Mes annonces',),
+              leading: IconButton(
+        icon: const Icon(Icons.menu), // Icône des trois traits
+        onPressed: () {
+          Scaffold.of(context).openDrawer(); // Ouvre le drawer
+        },
+      ),
         systemOverlayStyle: isDarkMode 
             ? SystemUiOverlayStyle.light 
             : SystemUiOverlayStyle.dark,
             actions: [
               IconButton(
                 icon: const Icon(Icons.add),
-                color: AppColors.primary,
                 onPressed: _showAddCarDialog,
                 tooltip: 'Ajouter un item',
               ),
             ],
           ),
-          backgroundColor: theme.scaffoldBackgroundColor,
           body: Stack(
             children: [
               _buildContent(viewModel),
@@ -152,45 +156,67 @@ class _CampingItemsScreenSellerState extends State<CampingItemsScreenSeller> {
   Widget _buildSlidingSearchBar(BuildContext context, CampingItemsSellerViewModel viewModel) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Positioned(
+      
       top: _searchBarOffset,
       left: 0,
       right: 0,
       child: Material(
+        
         elevation: 4,
-        color: theme.cardColor,
+    color: isDarkMode ? Colors.black : Colors.white, // 👈 couleur de fond ici
         child: Column(
+          
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               child: Row(
+                
                 children: [
                   Expanded(
                     child: Container(
+                      
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceVariant.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
+                        
                       ),
+                      
                       child: TextField(
-                        controller: _searchController,
-                        style: theme.textTheme.bodyMedium,
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher du matériel...',
-                          border: InputBorder.none,
-                          prefixIcon: Icon(Icons.search, color: colorScheme.onSurface.withOpacity(0.6)),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear, size: 20),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _onSearchChanged();
-                                  },
-                                )
-                              : null,
-                        ),
-                      ),
+  controller: _searchController,
+  style: TextStyle(
+    color: isDarkMode ? Colors.white : Colors.black,
+    fontSize: 16,
+  ),
+  decoration: InputDecoration(
+    hintText: 'Rechercher du matériel...', // Texte original du deuxième champ
+    hintStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+    prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+    suffixIcon: _searchController.text.isNotEmpty
+        ? IconButton(
+            icon: const Icon(Icons.clear, size: 20),
+            onPressed: () {
+              _searchController.clear();
+              _onSearchChanged(); // Fonction originale du deuxième champ
+            },
+          )
+        : null,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
+    filled: true,
+    fillColor: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  ),
+  onChanged: (value) {
+    _onSearchChanged(); // Fonction originale du deuxième champ
+  },
+),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -207,29 +233,7 @@ class _CampingItemsScreenSellerState extends State<CampingItemsScreenSeller> {
                 ],
               ),
             ),
-            if (viewModel.currentCategory != 'All' ||
-                viewModel.currentType != 'All' ||
-                viewModel.currentCondition != 'All')
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    if (viewModel.currentLocationId != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Chip(
-                          label: const Text('Localisation sélectionnée'),
-                          backgroundColor: colorScheme.surface,
-                          side: BorderSide(color: colorScheme.outline),
-                          deleteIcon: const Icon(Icons.close, size: 18),
-                          onDeleted: () => viewModel.applyFilters(locationId: null),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            const Divider(height: 16, thickness: 1),
+            
           ],
         ),
       ),

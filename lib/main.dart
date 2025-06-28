@@ -1,4 +1,5 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dumum_tergo/viewmodels/seller/SideMenuViewModelseller.dart';
 import 'package:dumum_tergo/views/pas_iternet.dart';
 import 'package:dumum_tergo/views/user/experiences/FavoriteExperiencesScreen.dart';
 import 'package:flutter/material.dart';
@@ -71,39 +72,39 @@ class NoConnectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-  backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Adapte la couleur au thème
-  body: SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const Spacer(flex: 2),
-          SizedBox(
-            width: MediaQuery.of(context).size.width * 0.8,
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: SvgPicture.string(
-                noInternetIllustration,
-                fit: BoxFit.scaleDown,
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? Colors.white.withOpacity(0.8) 
-                    : Colors.black.withOpacity(0.6), // Adapte la couleur du SVG
-              ),
-            ),
-          ),
-          const Spacer(flex: 2),
-          ErrorInfo(
-            title: "Pas de connexion Internet",
-            description: "Veuillez vérifier votre connexion réseau et réessayer.",
-            btnText: "Réessayer",
-            press: onRetry,
-            // Assurez-vous que le widget ErrorInfo supporte aussi le dark mode
-          ),
-        ],
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+         children: [
+  const Spacer(flex: 2),
+  SizedBox(
+    width: MediaQuery.of(context).size.width * 0.8,
+    child: AspectRatio(
+      aspectRatio: 1,
+      child: SvgPicture.string(
+        noInternetIllustration,
+        fit: BoxFit.scaleDown,
+        color: Theme.of(context).brightness == Brightness.dark 
+            ? Colors.white.withOpacity(0.8) 
+            : Colors.black.withOpacity(0.6),
+      ), // ← cette parenthèse était mal placée
     ),
   ),
-);
+  const Spacer(flex: 2),
+  ErrorInfo(
+    title: "Pas de connexion Internet",
+    description: "Veuillez vérifier votre connexion réseau et réessayer.",
+    btnText: "Réessayer",
+    press: onRetry,
+  ),
+],
+
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -184,6 +185,16 @@ void main() async {
   final notificationServiceUser = NotificationServiceuser();
   await notificationServiceUser.initialize();
 
+  // Configuration initiale de la status bar
+  SystemChrome.setSystemUIOverlayStyle(
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark, // Icônes noires par défaut
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
   runApp(
     MultiProvider(
       providers: [
@@ -201,7 +212,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ListeCarViewModel()),
         Provider<NotificationService>.value(value: notificationService),
         Provider<Connectivity>.value(value: connectivity),
-
+        ChangeNotifierProvider(create: (_) => SideMenuViewModelSeller()),
         ChangeNotifierProvider(
           create: (context) => CampingItemsViewModel(
             apiService: ApiService(
@@ -268,14 +279,15 @@ class _MyAppState extends State<MyApp> {
     _connectivity = Connectivity();
     _setupConnectivityListener();
   }
-Future<bool> hasInternetConnection() async {
-  try {
-    final result = await http.get(Uri.parse('https://www.google.com')).timeout(Duration(seconds: 5));
-    return result.statusCode == 200;
-  } catch (_) {
-    return false;
+
+  Future<bool> hasInternetConnection() async {
+    try {
+      final result = await http.get(Uri.parse('https://www.google.com')).timeout(Duration(seconds: 5));
+      return result.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
-}
 
   Future<void> _setupConnectivityListener() async {
     _connectivity.onConnectivityChanged.listen((result) {
@@ -286,27 +298,25 @@ Future<bool> hasInternetConnection() async {
     _updateConnectionStatus(initialResult);
   }
 
- void _updateConnectionStatus(ConnectivityResult result) async {
-  final actualInternet = await hasInternetConnection();
-  if (!mounted) return;
+  void _updateConnectionStatus(ConnectivityResult result) async {
+    final actualInternet = await hasInternetConnection();
+    if (!mounted) return;
 
-  if (actualInternet != _isConnected) {
-    setState(() {
-      _isConnected = actualInternet;
-    });
+    if (actualInternet != _isConnected) {
+      setState(() {
+        _isConnected = actualInternet;
+      });
+    }
   }
-}
-
 
   Future<void> _retryConnection() async {
     try {
       final result = await _connectivity.checkConnectivity();
       _updateConnectionStatus(result);
-    debugPrint('Resultat /..........r: $result');
+      debugPrint('Resultat /..........r: $result');
 
       if (!mounted) return;
 
-      // Utilisez la ScaffoldMessengerKey pour afficher les SnackBars
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(result != ConnectivityResult.none
@@ -326,106 +336,119 @@ Future<bool> hasInternetConnection() async {
   Widget build(BuildContext context) {
     return Consumer<ThemeViewModel>(
       builder: (context, themeViewModel, child) {
-            final systemOverlayStyle = themeViewModel.isDarkMode
+        // Mise à jour du style de la status bar quand le thème change
+        final systemOverlayStyle = themeViewModel.isDarkMode
             ? SystemUiOverlayStyle.light.copyWith(
-                statusBarIconBrightness: Brightness.light, // Icônes blanches en mode sombre
-                statusBarColor: Colors.transparent, // Fond transparent
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.light,
+                systemNavigationBarColor: Colors.black,
+                systemNavigationBarIconBrightness: Brightness.light,
               )
             : SystemUiOverlayStyle.dark.copyWith(
-                statusBarIconBrightness: Brightness.dark, // Icônes noires en mode clair
-                statusBarColor: Colors.transparent, // Fond transparent
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness: Brightness.dark,
+                systemNavigationBarColor: Colors.white,
+                systemNavigationBarIconBrightness: Brightness.dark,
               );
 
-        // Si pas de connexion, affiche l'écran de non-connexion
-        if (!_isConnected) {
-          return MaterialApp(
-            scaffoldMessengerKey: _scaffoldMessengerKey,
-            debugShowCheckedModeBanner: false,
-            themeMode: themeViewModel.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            home: NoConnectionScreen(
-              onRetry: _retryConnection,
-            ),
-          );
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          SystemChrome.setSystemUIOverlayStyle(systemOverlayStyle);
+        });
 
-        // Si connecté, continue avec le flux normal
-        return FutureBuilder<String?>(
-          future: getInitialRoute(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return MaterialApp(
-                scaffoldMessengerKey: _scaffoldMessengerKey,
-                home: Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                ),
-              );
-            } else {
-              return MaterialApp(
-                scaffoldMessengerKey: _scaffoldMessengerKey,
-                 title: 'Dumum Tergo',
-  debugShowCheckedModeBanner: false,
-  themeMode: themeViewModel.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-  theme: AppTheme.lightTheme,
-  darkTheme: AppTheme.darkTheme,
-  home: const SplashScreen(), // Ensure this is valid
-  initialRoute: '/splash',
-                routes: {
-                  '/vendorShop': (context) {
-                    final args = ModalRoute.of(context)!.settings.arguments as String;
-                    return VendorShopScreen(vendorId: args);
-                  },
-                  '/splash': (context) => const SplashScreen(),
-                  '/onboarding': (context) => const OnboardingScreens(),
-                  '/welcome': (context) => const WelcomeScreen(),
-                  '/signin': (context) => SignInScreen(),
-                  '/signup': (context) => SignUpScreen(),
-                  '/home': (context) => const HomeView(),
-                  '/privacy-policy': (context) => const PrivacyPolicyScreen(),
-                  '/forgot-password': (context) => const ForgotPasswordView(),
-                  '/profile': (context) => ProfileView(),
-                  '/SettingsView': (context) => SettingsView(),
-                  '/changePassword': (context) => ChangePasswordScreen(),
-                  '/signin_seller': (context) => SellerLoginView(),
-                  '/profile_seller': (context) => CompleteProfileSellerView(),
-                  '/PaymentView': (context) => PaymentView(),
-                  '/payment-success': (context) => AccuilSellerScreen(),
-                  '/complete_profile': (context) => CompleteProfileSellerView(),
-                  '/Reservation-Page': (context) => ReservationPage(),
-                   '/Favorite-Page': (context) => FavoriteExperiencesScreen(),
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: systemOverlayStyle,
+          child: Builder(
+            builder: (context) {
+              if (!_isConnected) {
+                return MaterialApp(
+                  scaffoldMessengerKey: _scaffoldMessengerKey,
+                  debugShowCheckedModeBanner: false,
+                  themeMode: themeViewModel.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+                  theme: AppTheme.lightTheme,
+                  darkTheme: AppTheme.darkTheme,
+                  home: NoConnectionScreen(
+                    onRetry: _retryConnection,
+                  ),
+                );
+              }
 
-                },
-                onGenerateRoute: (settings) {
-                  switch (settings.name) {
-                    case '/otp-verification':
-                      final String phoneNumber = settings.arguments as String;
-                      return MaterialPageRoute(
-                        builder: (context) => OtpVerificationScreen(
-                          phoneNumber: phoneNumber,
-                        ),
-                      );
-                    case '/otp-verification-change-mobile':
-                      final String phoneNumber = settings.arguments as String;
-                      return MaterialPageRoute(
-                        builder: (context) => VerificationOtpChangeMobile(
-                          fullPhoneNumber: phoneNumber,
-                        ),
-                      );
-                    case '/otp-verification':
-                      final String phoneNumber = settings.arguments as String;
-                      return MaterialPageRoute(
-                        builder: (context) => OtpVerificationSellerScreen(
-                          phoneNumber: phoneNumber,
-                        ),
-                      );
-                    default:
-                      return null;
+              return FutureBuilder<String?>(
+                future: getInitialRoute(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return MaterialApp(
+                      scaffoldMessengerKey: _scaffoldMessengerKey,
+                      home: Scaffold(
+                        body: Center(child: CircularProgressIndicator()),
+                      ),
+                    );
+                  } else {
+                    return MaterialApp(
+                      scaffoldMessengerKey: _scaffoldMessengerKey,
+                      title: 'Dumum Tergo',
+                      debugShowCheckedModeBanner: false,
+                      themeMode: themeViewModel.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+                      theme: AppTheme.lightTheme,
+                      darkTheme: AppTheme.darkTheme,
+                      home: const SplashScreen(),
+                      initialRoute: '/splash',
+                      routes: {
+                        '/vendorShop': (context) {
+                          final args = ModalRoute.of(context)!.settings.arguments as String;
+                          return VendorShopScreen(vendorId: args);
+                        },
+                        '/splash': (context) => const SplashScreen(),
+                        '/onboarding': (context) => const OnboardingScreens(),
+                        '/welcome': (context) => const WelcomeScreen(),
+                        '/signin': (context) => SignInScreen(),
+                        '/signup': (context) => SignUpScreen(),
+                        '/home': (context) => const HomeView(),
+                        '/privacy-policy': (context) => const PrivacyPolicyScreen(),
+                        '/forgot-password': (context) => const ForgotPasswordView(),
+                        '/profile': (context) => ProfileView(),
+                        '/SettingsView': (context) => SettingsView(),
+                        '/changePassword': (context) => ChangePasswordScreen(),
+                        '/signin_seller': (context) => SellerLoginView(),
+                        '/profile_seller': (context) => CompleteProfileSellerView(),
+                        '/PaymentView': (context) => PaymentView(),
+                        '/payment-success': (context) => AccuilSellerScreen(),
+                        '/complete_profile': (context) => CompleteProfileSellerView(),
+                        '/Reservation-Page': (context) => ReservationPage(),
+                        '/Favorite-Page': (context) => FavoriteExperiencesScreen(),
+                      },
+                      onGenerateRoute: (settings) {
+                        switch (settings.name) {
+                          case '/otp-verification':
+                            final String phoneNumber = settings.arguments as String;
+                            return MaterialPageRoute(
+                              builder: (context) => OtpVerificationScreen(
+                                phoneNumber: phoneNumber,
+                              ),
+                            );
+                          case '/otp-verification-change-mobile':
+                            final String phoneNumber = settings.arguments as String;
+                            return MaterialPageRoute(
+                              builder: (context) => VerificationOtpChangeMobile(
+                                fullPhoneNumber: phoneNumber,
+                              ),
+                            );
+                          case '/otp-verification':
+                            final String phoneNumber = settings.arguments as String;
+                            return MaterialPageRoute(
+                              builder: (context) => OtpVerificationSellerScreen(
+                                phoneNumber: phoneNumber,
+                              ),
+                            );
+                          default:
+                            return null;
+                        }
+                      },
+                    );
                   }
                 },
               );
-            }
-          },
+            },
+          ),
         );
       },
     );

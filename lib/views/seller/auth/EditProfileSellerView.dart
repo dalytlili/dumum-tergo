@@ -20,6 +20,7 @@ class EditProfileSellerView extends StatefulWidget {
 class _EditProfileSellerViewState extends State<EditProfileSellerView> {
   final LogoutService _logoutService = LogoutService();
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
 
   @override
   void initState() {
@@ -27,6 +28,10 @@ class _EditProfileSellerViewState extends State<EditProfileSellerView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<EditProfileSellerViewModel>(context, listen: false).fetchProfileData();
     });
+  }
+
+  Future<void> _refreshData() async {
+    await Provider.of<EditProfileSellerViewModel>(context, listen: false).fetchProfileData();
   }
 
   @override
@@ -39,227 +44,222 @@ class _EditProfileSellerViewState extends State<EditProfileSellerView> {
       appBar: AppBar(
         title: Text(
           'Modifier le profil',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: isDarkMode ? Colors.white : Colors.black,
-          ),
+         
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () {
+            Scaffold.of(context).openDrawer();
+          },
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-        iconTheme: IconThemeData(
-          color: isDarkMode ? Colors.white : Colors.black,
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.logout, color: isDarkMode ? Colors.white : Colors.black),
-            onPressed: () {
-              _showLogoutConfirmationDialog(context);
-            },
-          ),
-        ],
       ),
-      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: MediaQuery.of(context).size.width * 0.05,
-          vertical: 30.0,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildProfileImage(viewModel, isDarkMode),
-            const SizedBox(height: 10),
-            RichText(
-              text: TextSpan(
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
-                ),
-                children: [
-                  const TextSpan(text: 'Temps restant avant expiration : '),
-                  TextSpan(
-                    text: viewModel.remainingSubscriptionTime,
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
+      body: RefreshIndicator(
+        key: _refreshIndicatorKey,
+        onRefresh: _refreshData,
+        color: AppColors.primary,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: MediaQuery.of(context).size.width * 0.05,
+            vertical: 30.0,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildProfileImage(viewModel, isDarkMode),
+              const SizedBox(height: 10),
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: viewModel.nameController,
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: 'Nom',
-                labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-                fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: viewModel.adressController,
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: 'Adresse',
-                labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-                fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: viewModel.emailController,
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: 'Email',
-                labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-                fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: viewModel.descriptionController,
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                labelText: 'Description',
-                labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                border: OutlineInputBorder(),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-                fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
-                filled: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: viewModel.phoneNumberController,
-              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-              keyboardType: TextInputType.phone,
-              decoration: InputDecoration(
-                hintText: 'Numéro de téléphone',
-                hintStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[500]),
-                labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
-                prefixIcon: InkWell(
-                  onTap: () {
-                    showCountryPicker(
-                      context: context,
-                      showPhoneCode: true,
-                      onSelect: (Country country) {
-                        setState(() {
-                          viewModel.selectedCountry = country;
-                        });
-                      },
-                      countryListTheme: CountryListThemeData(
-                        backgroundColor: isDarkMode ? Colors.grey[900]! : Colors.white,
-                        textStyle: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                  children: [
+                     TextSpan(text: 'Temps restant avant expiration : ',style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+),
+                    TextSpan(
+                      text: viewModel.remainingSubscriptionTime,
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
                       ),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          viewModel.selectedCountry.flagEmoji,
-                          style: const TextStyle(fontSize: 20),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: viewModel.nameController,
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Nom',
+                  labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
+                  filled: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: viewModel.adressController,
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Adresse',
+                  labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
+                  filled: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: viewModel.emailController,
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
+                  filled: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: viewModel.descriptionController,
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  labelText: 'Description',
+                  labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                  border: OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
+                  filled: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: viewModel.phoneNumberController,
+                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(
+                  hintText: 'Numéro de téléphone',
+                  hintStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[500]),
+                  labelStyle: TextStyle(color: isDarkMode ? Colors.grey[400] : Colors.grey[700]),
+                  prefixIcon: InkWell(
+                    onTap: () {
+                      showCountryPicker(
+                        context: context,
+                        showPhoneCode: true,
+                        onSelect: (Country country) {
+                          setState(() {
+                            viewModel.selectedCountry = country;
+                          });
+                        },
+                        countryListTheme: CountryListThemeData(
+                          backgroundColor: isDarkMode ? Colors.grey[900]! : Colors.white,
+                          textStyle: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '+${viewModel.selectedCountry.phoneCode}',
-                          style: TextStyle(
-                            color: isDarkMode ? Colors.white70 : Colors.grey[700],
-                            fontSize: 14,
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            viewModel.selectedCountry.flagEmoji,
+                            style: const TextStyle(fontSize: 20),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_drop_down,
-                          color: isDarkMode ? Colors.white70 : Colors.grey[700],
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '+${viewModel.selectedCountry.phoneCode}',
+                            style: TextStyle(
+                              color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.arrow_drop_down,
+                            color: isDarkMode ? Colors.white70 : Colors.grey[700],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                ),
-                fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
-                filled: true,
-              ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Veuillez entrer votre numéro de téléphone';
-                }
-                if (!RegExp(r'^\d+$').hasMatch(value)) {
-                  return 'Veuillez entrer un numéro valide';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: viewModel.isLoading
-                    ? null
-                    : () async {
-                        await viewModel.updateProfile(context);
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                  ),
+                  fillColor: isDarkMode ? Colors.grey[800]! : Colors.grey[50]!,
+                  filled: true,
                 ),
-                child: viewModel.isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre numéro de téléphone';
+                  }
+                  if (!RegExp(r'^\d+$').hasMatch(value)) {
+                    return 'Veuillez entrer un numéro valide';
+                  }
+                  return null;
+                },
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: viewModel.isLoading
+                      ? null
+                      : () async {
+                          await viewModel.updateProfile(context);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
+                  ),
+                  child: viewModel.isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Enregistrer', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -296,53 +296,6 @@ class _EditProfileSellerViewState extends State<EditProfileSellerView> {
           ),
         ),
       ],
-    );
-  }
-
-  void _showLogoutConfirmationDialog(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: isDarkMode ? Colors.grey[800] : Colors.white,
-          title: Text(
-            'Déconnexion',
-            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black),
-          ),
-          content: Text(
-            'Êtes-vous sûr de vouloir vous déconnecter ?',
-            style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Annuler',
-                style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                final token = await _storage.read(key: 'seller_token');
-                if (token != null) {
-                  await _logoutService.logoutSeller(token);
-                  Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Token not found')),
-                  );
-                }
-              },
-              child: const Text(
-                'Déconnexion', 
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 

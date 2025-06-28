@@ -9,6 +9,7 @@ class AppColors {
   static const Color textLight = Color(0xFF757575);
   static const Color error = Color(0xFFD32F2F);
   static const Color success = Color(0xFF388E3C);
+  static const Color darkBackground = Color.fromARGB(255, 0, 0, 0);
 
   static var darkGrey;
 }

@@ -1,5 +1,6 @@
 import 'package:dumum_tergo/constants/colors.dart';
 import 'package:dumum_tergo/views/user/car/reservation_details_page.dart';
+import 'package:dumum_tergo/views/user/experiences/ExperienceDetailView.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -223,11 +224,11 @@ class _NotificationsUserPageState extends State<NotificationsUserPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.notifications_off, size: 64, color: Colors.grey),
+            const Icon(Icons.notifications_off, size: 64, ),
             const SizedBox(height: 16),
             const Text(
               'Aucune notification disponible',
-              style: TextStyle(fontSize: 18, color: Colors.grey),
+              style: TextStyle(fontSize: 18, ),
             ),
             const SizedBox(height: 8),
             TextButton.icon(
@@ -242,7 +243,6 @@ class _NotificationsUserPageState extends State<NotificationsUserPage> {
 
     return RefreshIndicator(
       onRefresh: _loadNotifications,
-      color: Theme.of(context).primaryColor,
       child: CustomScrollView(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -287,7 +287,6 @@ class _NotificationsUserPageState extends State<NotificationsUserPage> {
                   child: Text(
                     'Afficher plus (${_earlierNotifications.length - _earlierLimit})',
                     style: TextStyle(
-                      color: Theme.of(context).primaryColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -300,54 +299,63 @@ class _NotificationsUserPageState extends State<NotificationsUserPage> {
       ),
     );
   }
+Widget _buildNotificationItem(Map<String, dynamic> notification) {
+  final isRead = notification['read'] == true;
+  final data = notification['data'] ?? {};
+  final likedBy = data['likedBy'] ?? {};
+  final commentedBy = data['commentedBy'] ?? {};
+  final createdAt = notification['createdAt'] != null 
+      ? DateTime.parse(notification['createdAt']) 
+      : DateTime.now();
 
-  Widget _buildNotificationItem(Map<String, dynamic> notification) {
-    final isRead = notification['read'] == true;
-    final data = notification['data'] ?? {};
-    final car = data['car'] ?? {};
-    final user = data['user'] ?? {};
-    final createdAt = notification['createdAt'] != null 
-        ? DateTime.parse(notification['createdAt']) 
-        : DateTime.now();
+  // Image de l'utilisateur qui a liké ou commenté
+  final userImage = (likedBy['image'] ?? commentedBy['image']) != null
+      ? "${likedBy['image'] ?? commentedBy['image']}"
+      : null;
 
-    final userImage = user['image'] != null
-        ? "https://dumum-tergo-backend.onrender.com${user['image']}"
-        : null;
-
-    return InkWell(
-      onTap: () async {
-        await _markAsRead(notification['_id']);
-        // Naviguer vers la page appropriée
-        _handleNotificationTap(notification);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isRead 
-              ? Colors.transparent 
-              : Theme.of(context).primaryColor.withOpacity(0.05),
-          border: Border(
-            bottom: BorderSide(
-              color: Theme.of(context).dividerColor.withOpacity(0.3),
-              width: 1,
-            ),
+  return InkWell(
+    onTap: () async {
+      await _markAsRead(notification['_id']);
+      _handleNotificationTap(notification);
+    },
+    child: Container(
+      decoration: BoxDecoration(
+        color: isRead 
+            ? Colors.transparent 
+            : Theme.of(context).primaryColor.withOpacity(0.05),
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor.withOpacity(0.3),
+            width: 1,
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Badge de statut de lecture
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(top: 8, right: 8),
-              decoration: BoxDecoration(
-                color: isRead ? Colors.transparent : Theme.of(context).primaryColor,
-                shape: BoxShape.circle,
-              ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Badge de statut de lecture
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(top: 8, right: 8),
+            decoration: BoxDecoration(
+              color: isRead ? Colors.transparent : Theme.of(context).primaryColor,
+              shape: BoxShape.circle,
             ),
-            
-            // Avatar/Icone
+          ),
+          
+          // Avatar de l'utilisateur ou icône par défaut
+          if (userImage != null && (notification['type'] == 'experience_like' || notification['type'] == 'experience_comment'))
+            CircleAvatar(
+              radius: 20,
+            backgroundImage: NetworkImage(
+                     userImage.startsWith('https') 
+                        ? userImage
+                        : 'https://res.cloudinary.com/dcs2edizr/image/upload/${userImage}',
+                    ),
+            )
+          else
             Container(
               width: 40,
               height: 40,
@@ -363,94 +371,83 @@ class _NotificationsUserPageState extends State<NotificationsUserPage> {
                 ),
               ),
             ),
-            
-            const SizedBox(width: 12),
-            
-            // Contenu
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _getNotificationTitle(notification['type']),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: isRead 
-                                ? Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8)
-                                : Theme.of(context).textTheme.bodyMedium?.color,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        DateFormat('HH:mm').format(createdAt),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).hintColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  if (user['name'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
+          
+          const SizedBox(width: 12),
+          
+          // Contenu
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
                       child: Text(
-                        'De: ${user['name']}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).hintColor,
-                        ),
-                      ),
-                    ),
-                  
-                  if (car['brand'] != null && car['model'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '${car['brand']} ${car['model']}',
+                        _getNotificationTitle(notification['type']),
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
+                          color: isRead 
+                              ? Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8)
+                              : Theme.of(context).textTheme.bodyMedium?.color,
                         ),
                       ),
                     ),
-                  
-                  if (data['startDate'] != null && data['endDate'] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 14,
-                            color: Theme.of(context).hintColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_formatDate(data['startDate'])} - ${_formatDate(data['endDate'])}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).hintColor,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      DateFormat('HH:mm').format(createdAt),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).hintColor,
                       ),
                     ),
-                  
-                  const SizedBox(height: 4),
-                  Text(
-                    timeago.format(createdAt, locale: 'fr'),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).hintColor,
+                  ],
+                ),
+                
+                // Message spécifique pour les likes
+                if (notification['type'] == 'experience_like' && likedBy['name'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${likedBy['name']} a aimé votre expérience',
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
-                ],
-              ),
+                
+                // Message spécifique pour les commentaires
+                if (notification['type'] == 'experience_comment' && commentedBy['name'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '${commentedBy['name']} a commenté votre expérience',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                
+                // Message pour d'autres types de notifications
+                if (notification['type'] != 'experience_like' && 
+                    notification['type'] != 'experience_comment' && 
+                    notification['message'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      notification['message'],
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                
+                const SizedBox(height: 4),
+                Text(
+                  timeago.format(createdAt, locale: 'fr'),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
 Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
   final data = notification['data'] ?? {};
@@ -479,6 +476,27 @@ Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
         );
         break;
         
+      case 'experience_like':
+      case 'experience_comment': // Même traitement pour les likes et commentaires
+        if (data['experienceId'] != null) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ExperienceDetailView(
+                experienceId: data['experienceId'],
+                onExperienceDeleted: () {
+                  _loadNotifications(); 
+                },
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Données de l\'expérience incomplètes')),
+          );
+        }
+        break;
+        
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Type de notification non pris en charge: $type')),
@@ -497,42 +515,43 @@ Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
   }
 }
 
-// Exemple de méthode pour gérer un autre type de notification
-
-
-
-
-
-
-  Color _getNotificationColor(String? type) {
-    switch (type) {
-      case 'reservation_request':
-        return Colors.blue;
-      case 'reservation_accepted':
-        return Colors.green;
-      case 'reservation_rejected':
-        return Colors.red;
-      case 'payment_received':
-        return Colors.purple;
-      default:
-        return Theme.of(context).primaryColor;
-    }
+IconData _getNotificationIcon(String? type) {
+  switch (type) {
+    case 'reservation_request':
+      return Icons.car_rental;
+    case 'reservation_accepted':
+      return Icons.check_circle;
+    case 'reservation_rejected':
+      return Icons.cancel;
+    case 'payment_received':
+      return Icons.payment;
+    case 'experience_like':
+      return Icons.favorite;
+      case 'experience_comment':
+      return Icons.favorite;
+    default:
+      return Icons.notifications;
   }
+}
 
-  IconData _getNotificationIcon(String? type) {
-    switch (type) {
-      case 'reservation_request':
-        return Icons.car_rental;
-      case 'reservation_accepted':
-        return Icons.check_circle;
-      case 'reservation_rejected':
-        return Icons.cancel;
-      case 'payment_received':
-        return Icons.payment;
-      default:
-        return Icons.notifications;
-    }
+Color _getNotificationColor(String? type) {
+  switch (type) {
+    case 'reservation_request':
+      return Colors.blue;
+    case 'reservation_accepted':
+      return Colors.green;
+    case 'reservation_rejected':
+      return Colors.red;
+    case 'payment_received':
+      return Colors.purple;
+    case 'experience_like':
+      return Colors.pink;
+       case 'experience_comment':
+      return Colors.pink;
+    default:
+      return Theme.of(context).primaryColor;
   }
+}
 
   String _getNotificationTitle(String? type) {
     switch (type) {
@@ -542,6 +561,10 @@ Future<void> _handleNotificationTap(Map<String, dynamic> notification) async {
         return 'Réservation confirmée';
       case 'reservation_rejected':
         return 'Réservation annulée';
+              case 'experience_like':
+        return 'Nouveau j\'aime';
+        case 'experience_comment':
+        return 'Nouveau commenatire';
       case 'payment_received':
         return 'Paiement reçu';
       default:
@@ -574,7 +597,6 @@ class SliverSectionHeader extends StatelessWidget {
           title,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            color: Theme.of(context).primaryColor,
           ),
         ),
       ),

@@ -5,22 +5,33 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:dumum_tergo/constants/colors.dart';
 import '../../../viewmodels/user/profile_viewmodel.dart';
+import '../../../viewmodels/theme_viewmodel.dart'; // Importez le ThemeViewModel
 
 class ProfileView extends StatelessWidget {
-    const ProfileView({Key? key}) : super(key: key);
+  const ProfileView({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final themeViewModel = Provider.of<ThemeViewModel>(context, listen: true);
+    final isDarkMode = themeViewModel.isDarkMode;
+
     return ChangeNotifierProvider(
       create: (context) => ProfileViewModel()..fetchProfileData(),
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: isDarkMode ? AppColors.darkBackground : AppColors.background,
         body: Consumer<ProfileViewModel>(
           builder: (context, viewModel, child) {
             if (viewModel.isLoading) {
-              return Center(child: CircularProgressIndicator());
+              return Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    isDarkMode ? Colors.white : AppColors.primary,
+                  ),
+                ),
+              );
             } else {
               return RefreshIndicator(
+                color: isDarkMode ? Colors.white : AppColors.primary,
                 onRefresh: () async {
                   await viewModel.fetchProfileData();
                 },
@@ -28,8 +39,8 @@ class ProfileView extends StatelessWidget {
                   physics: AlwaysScrollableScrollPhysics(),
                   child: Column(
                     children: [
-                      _buildProfileHeader(viewModel),
-                      _buildExperiencesSection(viewModel),
+                      _buildProfileHeader(viewModel, isDarkMode),
+                      _buildExperiencesSection(viewModel, isDarkMode),
                     ],
                   ),
                 ),
@@ -41,68 +52,73 @@ class ProfileView extends StatelessWidget {
     );
   }
 
-  Widget _buildExperiencesSection(ProfileViewModel viewModel) {
-  return Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Expériences',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: AppColors.text,
+  Widget _buildExperiencesSection(ProfileViewModel viewModel, bool isDarkMode) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Expériences',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : AppColors.text,
+            ),
+          ),
+          SizedBox(height: 8),
+          if (viewModel.experiences.isEmpty)
+            Text(
+              'Aucune expérience à afficher!!',
+              style: TextStyle(color: isDarkMode ? Colors.grey[400] : AppColors.text),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: viewModel.experiences.length,
+              itemBuilder: (context, index) {
+                return _buildPostItem(context, viewModel.experiences[index], isDarkMode);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+Widget _buildPostItem(BuildContext context, Map<String, dynamic> experience, bool isDarkMode) {
+  return GestureDetector(
+    onTap: () async {
+      // Ajout du log pour afficher les données de l'expérience
+      print('Données de l\'expérience envoyées à ExperienceDetailView:');
+      print(experience.toString());
+      debugPrint('Détails de l\'expérience:', wrapWidth: 1024);
+      debugPrint(experience.toString(), wrapWidth: 1024);
+      
+      final shouldRefresh = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ExperienceDetailView(
+              experienceId: experience['_id'], // Passer seulement l'ID maintenant
           ),
         ),
-        SizedBox(height: 8),
-        if (viewModel.experiences.isEmpty)
-          Text(
-            'Aucune expérience à afficher',
-            style: TextStyle(color: AppColors.text),
-          )
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: viewModel.experiences.length,
-            itemBuilder: (context, index) {
-              return _buildPostItem(context, viewModel.experiences[index]);
-            },
-          ),
-      ],
-    ),
-  );
-}
+      ) ?? false;
 
-
-Widget _buildPostItem(BuildContext context, Map<String, dynamic> experience) {
-  return GestureDetector(
-onTap: () async {
-  final shouldRefresh = await Navigator.push<bool>(
-    context,
-    MaterialPageRoute(
-      builder: (context) => ExperienceDetailView(
-        experience: experience,
-      ),
-    ),
-  ) ?? false;
-
-  if (shouldRefresh && context.mounted) {
-    await Provider.of<ProfileViewModel>(context, listen: false).fetchProfileData();
-  }
-},
+      if (shouldRefresh && context.mounted) {
+        await Provider.of<ProfileViewModel>(context, listen: false).fetchProfileData();
+      }
+    },
     child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: isDarkMode ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.1),
             blurRadius: 5,
             spreadRadius: 2,
           ),
@@ -115,114 +131,115 @@ onTap: () async {
                   : experience['images'][0]['url'] ?? experience['images'][0]['imageUrl'] ?? '',
               fit: BoxFit.cover,
               placeholder: (context, url) => Container(
-                color: Colors.grey[200],
+                color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
               ),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
+              errorWidget: (context, url, error) => Icon(Icons.error, color: isDarkMode ? Colors.white : Colors.black),
             )
           : Container(
-              color: Colors.grey[200],
-              child: Center(child: Icon(Icons.image, color: Colors.grey[400])),
+              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+              child: Center(
+                child: Icon(
+                  Icons.image,
+                  color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                ),
+              ),
             ),
     ),
   );
 }
 
- Widget _buildProfileHeader(ProfileViewModel viewModel) {
-  return Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Photo de profil à gauche
-            Container(
-              margin: const EdgeInsets.only(right: 20),
-              child: CircleAvatar(
-                radius: 50,
-                backgroundColor: Colors.grey[200],
-                backgroundImage: viewModel.profileImageUrl.isNotEmpty
-                    ? NetworkImage(viewModel.profileImageUrl)
-                    : const AssetImage('assets/images/default_profile.png') as ImageProvider,
+  Widget _buildProfileHeader(ProfileViewModel viewModel, bool isDarkMode) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Photo de profil à gauche
+              Container(
+                margin: const EdgeInsets.only(right: 20),
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: isDarkMode ? Colors.grey[700] : Colors.grey[200],
+                  backgroundImage: viewModel.profileImageUrl.isNotEmpty
+                      ? NetworkImage(viewModel.profileImageUrl)
+                      : AssetImage('assets/images/default.png') as ImageProvider,
+                ),
               ),
-            ),
-            
-            // Informations utilisateur à droite
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          viewModel.name,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+              
+              // Informations utilisateur à droite
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            viewModel.name,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Statistiques en ligne
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildStatItem('Expériences', viewModel.experiences.length.toString()),
-                    _buildStatItem('Abonnés', viewModel.followersCount.toString()),
-                      _buildStatItem('Abonnements', viewModel.followingCount.toString()),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Statistiques en ligne
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildStatItem('Expériences', viewModel.experiences.length.toString(), isDarkMode),
+                        _buildStatItem('Abonnés', viewModel.followersCount.toString(), isDarkMode),
+                        _buildStatItem('Abonnements', viewModel.followingCount.toString(), isDarkMode),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-      const Divider(height: 1),
-    ],
-  );
-}
-
-Widget _buildStatItem(String label, String value) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(10),
-      color: Colors.grey[100],
-    ),
-    child: Column(
-      children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
+            ],
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+        Divider(
+          height: 1,
+          color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
         ),
       ],
-    ),
-  );
-}
+    );
+  }
 
-
-
-
-
-
-
-
- 
+  Widget _buildStatItem(String label, String value, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4.4, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        color: isDarkMode ? Colors.grey[800] : Colors.grey[100],
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.white : Colors.black,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:country_picker/country_picker.dart';
 import 'package:dumum_tergo/constants/colors.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dumum_tergo/viewmodels/user/EditProfileViewModel.dart';
 import 'dart:io';
-import 'dart:ui';
 
 class EditProfileView extends StatefulWidget {
   const EditProfileView({super.key});
@@ -40,64 +41,44 @@ class _EditProfileViewState extends State<EditProfileView> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final viewModel = Provider.of<EditProfileViewModel>(context, listen: true);
-    final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.primary.withOpacity(0.1),
-              Colors.white.withOpacity(0.9),
-            ],
-          ),
+      appBar: AppBar(
+        title: const Text('Modifier le Profil'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: screenSize.width * 0.05,
-                vertical: 20.0,
-              ),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(child: _buildProfileImage(viewModel)),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Informations Personnelles',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+
+      ),
+      body: Container(
+   
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: Column(
+              children: [
+                _buildProfileImage(viewModel),
+                const SizedBox(height: 32),
+                _buildGlassCard(
+                  child: Column(
+                    children: [
+                      _buildTextField(
+                        controller: viewModel.nameController,
+                        label: 'Nom',
+                        icon: Icons.person_outline,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    _buildGlassCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildTextField(
-                            controller: viewModel.nameController,
-                            label: 'Nom',
-                            icon: Icons.person_outline,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildGenderField(viewModel),
-                          const SizedBox(height: 16),
-                          _buildPhoneField(viewModel, context),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    _buildSaveButton(viewModel, context),
-                  ],
+                      const SizedBox(height: 16),
+                      _buildGenderField(viewModel),
+                      const SizedBox(height: 16),
+                      _buildPhoneField(viewModel, context),
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 32),
+                _buildSaveButton(viewModel, context),
+              ],
             ),
           ),
         ),
@@ -365,6 +346,6 @@ class _EditProfileViewState extends State<EditProfileView> with SingleTickerProv
         }
       }
     }
-    return const AssetImage('assets/images/default.png');
+    return const AssetImage('assets/images/default_profile.png');
   }
 }

@@ -613,210 +613,210 @@ class _FavoriteExperiencesScreenState extends State<FavoriteExperiencesScreen> {
     }
   }
 
-  Widget _buildExperienceItem(Experience experience) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundImage: NetworkImage(
-                  'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.user.image ?? 'default.jpg'}',
-                ),
+Widget _buildExperienceItem(Experience experience) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundImage: NetworkImage(
+                'https://res.cloudinary.com/dcs2edizr/image/upload/${experience.user.image ?? 'default.jpg'}',
               ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () {
-                  if (currentUserId != null && currentUserId != experience.user.id) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => UserProfileScreen(userId: experience.user.id),
-                      ),
-                    );
-                  }
-                },
-                child: Text(
-                  experience.user.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.more_vert),
-                onPressed: () {},
-              ),
-            ],
-          ),
-        ),
-        
-        if (experience.images.isNotEmpty)
-          Column(
-            children: [
-              GestureDetector(
-                onTap: () {
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () {
+                if (currentUserId != null && currentUserId != experience.user.id) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => FullScreenImageGallery(
-                        images: experience.images.map((img) => img.url).toList(),
-                        initialIndex: currentPage,
-                      ),
+                      builder: (context) => UserProfileScreen(userId: experience.user.id),
                     ),
                   );
-                },
-                child: SizedBox(
-                  height: 300,
-                  child: PageView.builder(
-                    itemCount: experience.images.length,
-                    onPageChanged: (index) {
-                      setState(() {
-                        currentPage = index;
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      return CachedNetworkImage(
-                        imageUrl: experience.images[index].url,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          color: Colors.grey[200],
-                        ),
-                        errorWidget: (context, url, error) => const Icon(Icons.error),
-                      );
-                    },
-                  ),
+                }
+              },
+              child: Text(
+                experience.user.name,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
               ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(experience.images.length, (index) {
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: currentPage == index ? 12 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: currentPage == index
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  );
-                }),
-              ),
-            ],
-          ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  experience.isLikedByUser(currentUserId ?? '') 
-                    ? Icons.favorite 
-                    : Icons.favorite_border,
-                  color: experience.isLikedByUser(currentUserId ?? '') 
-                    ? Colors.red 
-                    : null,
-                ),
-                onPressed: () => _handleLike(experience),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.comment_outlined),
-                onPressed: () {
-                  _showCommentsBottomSheet(experience.id, experience.comments);
-                },
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.bookmark, color: AppColors.primary),
-                onPressed: () => _handleFavorite(experience),
-              ),
-            ],
-          ),
-        ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
-          child: experience.likes.isEmpty
-              ? const SizedBox.shrink()
-              : GestureDetector(
-                  onTap: () => _showLikesBottomSheet(experience.id),
-                  child: RichText(
-                    text: TextSpan(
-                      children: [
-                        
-                        TextSpan(
-                          text: '${experience.likes.length} ',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                         TextSpan(
-                        text: experience.likes.length == 1 ? 'j\'aime' : 'j\'aimes',
-                        style: const TextStyle(
-                          color: Colors.black,
-                        ),
-                      ),
-                      ],
-                    ),
-                  ),
-                ),
-        ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: Colors.black),
-                  children: [
-                    TextSpan(
-                      text: '${experience.user.name} ',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-              ReadMoreText(
-                experience.description,
-                trimLines: 2,
-                colorClickableText: AppColors.primary,
-                trimMode: TrimMode.Line,
-                trimCollapsedText: '... Voir plus',
-                trimExpandedText: ' Voir moins',
-                style: const TextStyle(color: Colors.black),
-              ),
-            ],
-          ),
-        ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
-          child: Text(
-            _formatTimeAgo(experience.createdAt),
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
             ),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color),
+              onPressed: () {},
+            ),
+          ],
+        ),
+      ),
+      
+      if (experience.images.isNotEmpty)
+        Column(
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => FullScreenImageGallery(
+                      images: experience.images.map((img) => img.url).toList(),
+                      initialIndex: currentPage,
+                    ),
+                  ),
+                );
+              },
+              child: SizedBox(
+                height: 300,
+                child: PageView.builder(
+                  itemCount: experience.images.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      currentPage = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    return CachedNetworkImage(
+                      imageUrl: experience.images[index].url,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Theme.of(context).cardTheme.color,
+                      ),
+                      errorWidget: (context, url, error) => Icon(Icons.error, color: Theme.of(context).iconTheme.color),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(experience.images.length, (index) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  width: currentPage == index ? 12 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: currentPage == index
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
+      
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                experience.isLikedByUser(currentUserId ?? '') 
+                  ? Icons.favorite 
+                  : Icons.favorite_border,
+                color: experience.isLikedByUser(currentUserId ?? '') 
+                  ? Colors.red 
+                  : Theme.of(context).iconTheme.color,
+              ),
+              onPressed: () => _handleLike(experience),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.comment_outlined, color: Theme.of(context).iconTheme.color),
+              onPressed: () {
+                _showCommentsBottomSheet(experience.id, experience.comments);
+              },
+            ),
+            const Spacer(),
+            IconButton(
+              icon: Icon(Icons.bookmark, color: AppColors.primary),
+              onPressed: () => _handleFavorite(experience),
+            ),
+          ],
+        ),
+      ),
+      
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+        child: experience.likes.isEmpty
+            ? const SizedBox.shrink()
+            : GestureDetector(
+                onTap: () => _showLikesBottomSheet(experience.id),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${experience.likes.length} ',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                      TextSpan(
+                        text: experience.likes.length == 1 ? 'j\'aime' : 'j\'aimes',
+                        style: TextStyle(
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ),
+      
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            RichText(
+              text: TextSpan(
+                style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+                children: [
+                  TextSpan(
+                    text: '${experience.user.name} ',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            ReadMoreText(
+              experience.description,
+              trimLines: 2,
+              colorClickableText: Theme.of(context).primaryColor,
+              trimMode: TrimMode.Line,
+              trimCollapsedText: '... Voir plus',
+              trimExpandedText: ' Voir moins',
+              style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
+            ),
+          ],
+        ),
+      ),
+      
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+        child: Text(
+          _formatTimeAgo(experience.createdAt),
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodySmall?.color,
+            fontSize: 12,
           ),
         ),
-        
-        const SizedBox(height: 8),
-      ],
-    );
-  }
+      ),
+      
+      const SizedBox(height: 8),
+    ],
+  );
+}
 
   @override
   Widget build(BuildContext context) {
