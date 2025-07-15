@@ -44,11 +44,9 @@ class _ReservationDetailPageState extends State<ReservationDetailPage> {
       appBar: AppBar(
         title: Text(
           'Détails de réservation',
-     
         ),
         centerTitle: true,
         elevation: 0,
-      
         systemOverlayStyle: isDarkMode 
             ? SystemUiOverlayStyle.light 
             : SystemUiOverlayStyle.dark,
@@ -100,7 +98,6 @@ class _ReservationDetailPageState extends State<ReservationDetailPage> {
                   SizedBox(height: 12),
                   _buildAdditionalOptionsCard(widget.reservation, isDarkMode),
                   SizedBox(height: 20),
-                  
                 ],
               ),
             ),
@@ -109,6 +106,52 @@ class _ReservationDetailPageState extends State<ReservationDetailPage> {
       ),
       bottomNavigationBar: _buildActionButtons(context, widget.reservation, isDarkMode),
     );
+  }
+
+  Future<void> _createComplaint() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final token = await storage.read(key: 'seller_token');
+
+    // Afficher un dialogue pour saisir les détails de la réclamation
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => ComplaintDialog(),
+    );
+
+    if (result != null) {
+      try {
+        final response = await http.post(
+          Uri.parse('https://dumum-tergo-backend.onrender.com/api/complaints/vendeur'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'userId': widget.reservation['user']['_id'],
+            'title': result['title'],
+            'description': result['description'],
+          }),
+        );
+
+        if (response.statusCode == 201) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Réclamation créée avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception('Erreur lors de la création de la réclamation');
+        }
+      } catch (e) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // Nouvelle méthode pour afficher les documents
@@ -233,7 +276,6 @@ void _openFullScreenGallery(String imageUrl) {
 
 
 
-  // Modifier la méthode _buildClientInfoCard pour supprimer le nom et prénom
   Widget _buildClientInfoCard(Map<String, dynamic> reservation, bool isDarkMode) {
     final userImage = reservation['user']['image'] != null
         ? (reservation['user']['image'].toString().startsWith('https')
@@ -248,52 +290,78 @@ void _openFullScreenGallery(String imageUrl) {
       ),
       child: Padding(
         padding: EdgeInsets.all(16),
-        child: Row(
+        child: Column(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primary.withOpacity(isDarkMode ? 0.3 : 0.2),
-                  width: 2,
+            Row(
+              children: [
+                // Image et info du client
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.primary.withOpacity(isDarkMode ? 0.3 : 0.2),
+                      width: 2,
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppColors.primary.withOpacity(isDarkMode ? 0.2 : 0.1),
+                    foregroundImage: userImage != null ? NetworkImage(userImage) : null,
+                    child: userImage == null
+                        ? Icon(
+                            Icons.person_rounded,
+                            size: 28,
+                            color: AppColors.primary,
+                          )
+                        : null,
+                  ),
                 ),
-              ),
-              child: CircleAvatar(
-                radius: 28,
-                backgroundColor: AppColors.primary.withOpacity(isDarkMode ? 0.2 : 0.1),
-                foregroundImage: userImage != null ? NetworkImage(userImage) : null,
-                child: userImage == null
-                    ? Icon(
-                        Icons.person_rounded,
-                        size: 28,
-                        color: AppColors.primary,
-                      )
-                    : null,
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ID Client: ${reservation['user']['_id']?.substring(0, 8) ?? 'N/A'}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : Colors.black87,
-                    ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nom: ${reservation['user']['name'] ?? 'N/A'}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Tel: ${reservation['user']['mobile'] ?? 'N/A'}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Compte vérifié',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                ),
+                // Bouton des trois points
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, color: isDarkMode ? Colors.grey[400] : Colors.grey[600]),
+                  onSelected: (value) {
+                    if (value == 'complaint') {
+                      _createComplaint();
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    PopupMenuItem<String>(
+                      value: 'complaint',
+                      child: Row(
+                        children: [
+                          Icon(Icons.report_problem, color: Colors.orange),
+                          SizedBox(width: 8),
+                          Text('Créer une réclamation'),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
@@ -301,7 +369,7 @@ void _openFullScreenGallery(String imageUrl) {
     );
   }
 
-  // ... (le reste du code reste inchangé)
+  // ... [Le reste des méthodes existantes reste inchangé] ...
   Widget _buildStatusHeaderSection(bool isDarkMode) {
     return Container(
       padding: EdgeInsets.all(20),
@@ -525,7 +593,6 @@ void _openFullScreenGallery(String imageUrl) {
                   value: reservation['car']['registrationNumber'] ?? 'N/A',
                   isDarkMode: isDarkMode,
                 ),
-    
               ],
             ),
           ),
@@ -652,7 +719,6 @@ void _openFullScreenGallery(String imageUrl) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             _buildDetailRow(
               icon: Icons.calendar_today_rounded,
               label: 'Dates',
@@ -703,14 +769,11 @@ void _openFullScreenGallery(String imageUrl) {
               value: reservation['childSeats']?.toString() ?? '0',
               isDarkMode: isDarkMode,
             ),
-         
           ],
         ),
       ),
     );
   }
-
-
 
   Widget _buildDetailRow({
     required IconData icon,
@@ -991,8 +1054,6 @@ void _openFullScreenGallery(String imageUrl) {
     }
   }
 
- 
-
   String _calculateDuration(String startDate, String endDate) {
     try {
       final start = DateTime.parse(startDate);
@@ -1012,5 +1073,219 @@ void _openFullScreenGallery(String imageUrl) {
       return 'N/A';
     }
   }
+}
+class ComplaintDialog extends StatefulWidget {
+  @override
+  _ComplaintDialogState createState() => _ComplaintDialogState();
+}
 
+class _ComplaintDialogState extends State<ComplaintDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final FocusNode _descriptionFocusNode = FocusNode();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _descriptionFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      elevation: 4,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: 500),
+        padding: EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Nouvelle réclamation',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 24),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              
+              SizedBox(height: 24),
+              
+              // Title Field
+              Text(
+                'Titre de la réclamation',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface.withOpacity(0.8),
+                ),
+              ),
+              SizedBox(height: 8),
+              TextFormField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  hintText: 'Décrivez brièvement le problème',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colors.outline.withOpacity(0.3),
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: isDarkMode 
+                      ? colors.surfaceVariant.withOpacity(0.5)
+                      : colors.surfaceVariant.withOpacity(0.3),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                style: TextStyle(fontSize: 15),
+                validator: (value) => value?.isEmpty ?? true 
+                    ? 'Veuillez saisir un titre' 
+                    : null,
+                textInputAction: TextInputAction.next,
+                onFieldSubmitted: (_) {
+                  FocusScope.of(context).requestFocus(_descriptionFocusNode);
+                },
+              ),
+              
+              SizedBox(height: 20),
+              
+              // Description Field
+              Text(
+                'Description détaillée',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface.withOpacity(0.8),
+                ),
+              ),
+              SizedBox(height: 8),
+              TextFormField(
+                controller: _descriptionController,
+                focusNode: _descriptionFocusNode,
+                decoration: InputDecoration(
+                  hintText: 'Décrivez le problème en détails...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colors.outline.withOpacity(0.3),
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: isDarkMode 
+                      ? colors.surfaceVariant.withOpacity(0.5)
+                      : colors.surfaceVariant.withOpacity(0.3),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                maxLines: 5,
+                style: TextStyle(fontSize: 15),
+                validator: (value) => value?.isEmpty ?? true 
+                    ? 'Veuillez saisir une description' 
+                    : null,
+              ),
+              
+              SizedBox(height: 32),
+              
+              // Actions
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Annuler',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colors.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _isSubmitting 
+                        ? null 
+                        : () async {
+                            if (_formKey.currentState?.validate() ?? false) {
+                              setState(() => _isSubmitting = true);
+                              await Future.delayed(Duration(milliseconds: 300));
+                              if (mounted) {
+                                Navigator.pop(context, {
+                                  'title': _titleController.text,
+                                  'description': _descriptionController.text,
+                                });
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.primary,
+                      foregroundColor: colors.onPrimary,
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _isSubmitting
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colors.onPrimary,
+                            ),
+                          )
+                        : Text(
+                            'Envoyer',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

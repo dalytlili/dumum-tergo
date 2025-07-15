@@ -162,29 +162,7 @@ class _CampingItemDetailScreenState extends State<CampingItemDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.item.name),
-        actions: [
-        
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'report',
-                child: Row(
-                  children: [
-                    Icon(Icons.report, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Signaler'),
-                  ],
-                ),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'report') {
-                _showReportDialog();
-              }
-            },
-          ),
-        ],
+   
       ),
       body: Column(
         children: [

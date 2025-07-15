@@ -3,6 +3,7 @@ import 'package:dumum_tergo/constants/colors.dart';
 import 'package:dumum_tergo/viewmodels/seller/SideMenuViewModelseller.dart';
 import 'package:dumum_tergo/views/ContactUsScreen.dart';
 import 'package:dumum_tergo/views/HelpCenterScreen.dart';
+import 'package:dumum_tergo/views/seller/Vendor-Complaints-Page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/theme_viewmodel.dart';
@@ -123,7 +124,19 @@ child: CircleAvatar(
     ),
   ), 
               ),
-           
+           ListTile(
+  leading: const Icon(Icons.report_problem),
+  title: const Text('Mes Réclamations'),
+  onTap: () {
+    Navigator.pop(context); // Ferme le menu
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const VendorComplaintsPage(),
+      ),
+    );
+  },
+),
               ListTile(
                 leading: const Icon(Icons.help_outline),
                 title: const Text('Centre d\'aide'),

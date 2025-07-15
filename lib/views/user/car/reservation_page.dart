@@ -5,6 +5,9 @@ import 'package:dumum_tergo/models/reservation_model.dart';
 import 'package:dumum_tergo/services/reservation_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ReservationPage extends StatefulWidget {
   final String? authToken;
@@ -17,6 +20,7 @@ class ReservationPage extends StatefulWidget {
 
 class _ReservationPageState extends State<ReservationPage> {
   late Future<List<Reservation>> futureReservations;
+  final FlutterSecureStorage storage = const FlutterSecureStorage();
 
   @override
   void initState() {
@@ -27,7 +31,6 @@ class _ReservationPageState extends State<ReservationPage> {
   Future<List<Reservation>> _loadReservations() async {
     try {
       final data = await ReservationService().getUserReservations();
-      // Trier les réservations par date de création (les plus récentes en premier)
       final reservations = data.map((json) => Reservation.fromJson(json)).toList();
       reservations.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return reservations;
@@ -40,6 +43,51 @@ class _ReservationPageState extends State<ReservationPage> {
     setState(() {
       futureReservations = _loadReservations();
     });
+  }
+
+  Future<void> _createComplaint(String vendorId) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final token = await storage.read(key: 'token');
+
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => ComplaintDialog(),
+    );
+
+    if (result != null) {
+      try {
+        final response = await http.post(
+          Uri.parse('http://localhost:9098/api/complaints'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({
+            'vendorId': vendorId,
+            'title': result['title'],
+            'description': result['description'],
+          }),
+        );
+
+        if (response.statusCode == 201) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text('Réclamation créée avec succès'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          throw Exception('Failed to create complaint');
+        }
+      } catch (e) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Erreur: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -131,6 +179,7 @@ class _ReservationPageState extends State<ReservationPage> {
                     key: ValueKey(reservation.id),
                     reservation: reservation,
                     onCancelled: _refreshReservations,
+                    onCreateComplaint: () => _createComplaint(reservation.vendor.id),
                   ),
                 );
               },
@@ -145,11 +194,13 @@ class _ReservationPageState extends State<ReservationPage> {
 class ReservationCard extends StatefulWidget {
   final Reservation reservation;
   final Function()? onCancelled;
+  final Function()? onCreateComplaint;
 
   const ReservationCard({
     super.key, 
     required this.reservation,
     this.onCancelled,
+    this.onCreateComplaint,
   });
 
   @override
@@ -276,11 +327,21 @@ class _ReservationCardState extends State<ReservationCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${widget.reservation.car.brand} ${widget.reservation.car.model}',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${widget.reservation.car.brand} ${widget.reservation.car.model}',
+                                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                              IconButton(
+                                icon: Icon(Icons.more_vert, size: 20),
+                                onPressed: () => _showComplaintMenu(context),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -377,6 +438,30 @@ class _ReservationCardState extends State<ReservationCard> {
     );
   }
 
+  void _showComplaintMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.report_problem, color: Colors.orange),
+              title: Text('Signaler un problème'),
+              onTap: () {
+                Navigator.pop(context);
+                if (widget.onCreateComplaint != null) {
+                  widget.onCreateComplaint!();
+                }
+              },
+            ),
+        const SizedBox(height: 20),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildInfoRow({
     required IconData icon, 
     required String text,
@@ -394,6 +479,189 @@ class _ReservationCardState extends State<ReservationCard> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class ComplaintDialog extends StatefulWidget {
+  @override
+  _ComplaintDialogState createState() => _ComplaintDialogState();
+}
+
+class _ComplaintDialogState extends State<ComplaintDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
+
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      elevation: 4,
+      child: Container(
+        constraints: BoxConstraints(maxWidth: 500),
+        padding: EdgeInsets.all(24),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Nouvelle réclamation',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, size: 24),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              ),
+              SizedBox(height: 24),
+              Text(
+                'Titre de la réclamation',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface.withOpacity(0.8),
+                ),
+              ),
+              SizedBox(height: 8),
+              TextFormField(
+                controller: _titleController,
+                decoration: InputDecoration(
+                  hintText: 'Décrivez brièvement le problème',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colors.outline.withOpacity(0.3),
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: isDarkMode 
+                      ? colors.surfaceVariant.withOpacity(0.5)
+                      : colors.surfaceVariant.withOpacity(0.3),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                style: TextStyle(fontSize: 15),
+                validator: (value) => value?.isEmpty ?? true 
+                    ? 'Veuillez saisir un titre' 
+                    : null,
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Description détaillée',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: colors.onSurface.withOpacity(0.8),
+                ),
+              ),
+              SizedBox(height: 8),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  hintText: 'Décrivez le problème en détails...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: colors.outline.withOpacity(0.3),
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: isDarkMode 
+                      ? colors.surfaceVariant.withOpacity(0.5)
+                      : colors.surfaceVariant.withOpacity(0.3),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                maxLines: 5,
+                style: TextStyle(fontSize: 15),
+                validator: (value) => value?.isEmpty ?? true 
+                    ? 'Veuillez saisir une description' 
+                    : null,
+              ),
+              SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      'Annuler',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: colors.onSurface.withOpacity(0.7),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState?.validate() ?? false) {
+                        Navigator.pop(context, {
+                          'title': _titleController.text,
+                          'description': _descriptionController.text,
+                        });
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colors.primary,
+                      foregroundColor: colors.onPrimary,
+                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Envoyer',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

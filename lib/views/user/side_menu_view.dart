@@ -1,5 +1,6 @@
 import 'package:dumum_tergo/constants/colors.dart';
 import 'package:dumum_tergo/viewmodels/user/SideMenuViewModel.dart';
+import 'package:dumum_tergo/views/user/User-Complaints-Page.dart';
 import 'package:dumum_tergo/views/user/chat_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -116,6 +117,19 @@ class _SideMenuViewState extends State<SideMenuView> {
                   Navigator.pushNamed(context, '/Reservation-Page');
                 },
               ),
+                ListTile(
+  leading: const Icon(Icons.report_problem),
+  title: const Text('Mes Réclamations'),
+  onTap: () {
+    Navigator.pop(context); // Ferme le menu
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const UserComplaintsPage(),
+      ),
+    );
+  },
+),
               ListTile(
                 leading: const Icon(Icons.bookmark),
                 title: const Text('Mes favoris'),

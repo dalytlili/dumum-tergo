@@ -150,19 +150,7 @@ Future<void> _fetchReservations({bool reset = false}) async {
         isRefreshing = false;
       });
       
-     // if (kDebugMode) print('Erreur _fetchReservations: $e');
     }
-  }
-
-  Future<void> _loadMoreReservations() async {
-    if (isLoading || !_hasMore) return;
-    
-    setState(() {
-      _currentPage++;
-      isLoading = true;
-    });
-    
-    await _fetchReservations();
   }
 
   void _navigateToInitialReservation() {
